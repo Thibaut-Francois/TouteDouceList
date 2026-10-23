@@ -1,0 +1,38 @@
+{
+	"name": "toutedoucelist",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "tsx scripts/migrate.ts",
+		"setup": "tsx scripts/setup.ts"
+	},
+	"dependencies": {
+		"@libsql/client": "0.18.0",
+		"@node-rs/argon2": "2.2.2",
+		"drizzle-orm": "0.45.4"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-vercel": "6.3.4",
+		"@sveltejs/kit": "2.70.3",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@types/node": "24.19.1",
+		"drizzle-kit": "0.31.11",
+		"svelte": "5.57.2",
+		"svelte-check": "4.7.6",
+		"tsx": "4.23.15",
+		"typescript": "6.0.3",
+		"vite": "8.3.4",
+		"vitest": "5.0.3"
+	}
+}
