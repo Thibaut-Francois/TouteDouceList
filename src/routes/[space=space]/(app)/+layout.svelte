@@ -5,6 +5,12 @@
 
 	let { data, children } = $props();
 
+	const tabs = $derived([
+		{ href: `/${data.space}`, label: 'Tâches' },
+		{ href: `/${data.space}/recurrences`, label: 'Récurrences' },
+		{ href: `/${data.space}/archive`, label: 'Archive' }
+	]);
+
 	// Synchronisation entre appareils : rechargement au retour sur l'app ou du réseau.
 	let lastRefresh = Date.now();
 	function refresh() {
@@ -28,7 +34,7 @@
 		<button class="btn ghost" type="submit">Verrouiller</button>
 	</form>
 	<nav class="tabs" aria-label="Sections">
-		{#each [{ href: `/${data.space}`, label: 'Tâches' }, { href: `/${data.space}/recurrences`, label: 'Récurrences' }] as tab (tab.href)}
+		{#each tabs as tab (tab.href)}
 			<a href={tab.href} aria-current={page.url.pathname === tab.href ? 'page' : undefined}>{tab.label}</a>
 		{/each}
 	</nav>
