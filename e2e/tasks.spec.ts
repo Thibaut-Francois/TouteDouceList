@@ -14,6 +14,16 @@ async function reload(page: Page) {
 	await page.reload({ waitUntil: 'networkidle' });
 }
 
+/** Réponse réussie d'une écriture : à attendre avant de recharger, sinon le rechargement l'annule. */
+function saved(page: Page, method: string, bodyContains = '') {
+	return page.waitForResponse(
+		(r) =>
+			r.request().method() === method &&
+			(r.request().postData() ?? '').includes(bodyContains) &&
+			r.ok()
+	);
+}
+
 /** Sur PC, le raccourci N ; sur mobile, le bouton flottant. Le focus doit suivre immédiatement. */
 async function openQuickAdd(page: Page, isMobile: boolean) {
 	if (isMobile) await page.getByRole('button', { name: 'Ajouter une tâche' }).tap();
@@ -30,6 +40,7 @@ test('création rapide avec syntaxe, complétion et annulation', async ({ page, 
 	await openQuickAdd(page, isMobile);
 	await page.keyboard.type(`${title} !1 demain`);
 	await expect(page.getByText('Priorité Critique · Échéance demain')).toBeVisible();
+	const created = saved(page, 'POST');
 	await page.keyboard.press('Enter');
 
 	const item = page.getByRole('listitem').filter({ hasText: title });
@@ -37,14 +48,17 @@ test('création rapide avec syntaxe, complétion et annulation', async ({ page, 
 	await expect(item.getByRole('img', { name: 'Priorité 1 · Critique' })).toHaveText('1');
 	await expect(page.getByLabel('Nouvelle tâche')).toHaveValue('');
 
+	await created;
 	await reload(page);
 	await expect(item).toBeVisible();
 
 	await item.getByRole('checkbox').click();
 	await expect(item).toHaveCount(0);
+	const reopened = saved(page, 'PATCH', '"open"');
 	await page.getByRole('button', { name: 'Annuler' }).click();
 	await expect(item).toBeVisible();
 
+	await reopened;
 	await reload(page);
 	await expect(item).toBeVisible();
 });
@@ -57,10 +71,10 @@ test('une tâche cochée ne revient pas après rechargement', async ({ page, isM
 	await page.keyboard.press('Enter');
 
 	const item = page.getByRole('listitem').filter({ hasText: title });
-	const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.ok());
+	const completed = saved(page, 'PATCH', '"done"');
 	await item.getByRole('checkbox').click();
 	await expect(item).toHaveCount(0);
-	await saved;
+	await completed;
 	await reload(page);
 	await expect(item).toHaveCount(0);
 });
@@ -78,6 +92,7 @@ test('édition du titre, des notes, de la priorité et de l’échéance', async
 	await dialog.getByLabel('Notes').fill('Penser aux annexes');
 	await dialog.getByLabel('Priorité').selectOption('2');
 	await dialog.getByLabel('Échéance').fill('2030-01-15');
+	const edited = saved(page, 'PATCH', 'annexes');
 	await dialog.getByRole('button', { name: 'Enregistrer' }).click();
 	await expect(dialog).toBeHidden();
 
@@ -86,6 +101,7 @@ test('édition du titre, des notes, de la priorité et de l’échéance', async
 	await expect(badge).toBeVisible();
 	await expect(item).toContainText('2030');
 
+	await edited;
 	await reload(page);
 	await expect(badge).toBeVisible();
 	await page.getByRole('button', { name: `${title} relu` }).click();

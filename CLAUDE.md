@@ -52,7 +52,11 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - Priorités : 1 Critique · 2 Élevée · 3 Faible (par défaut) · 4 Minime.
 
 ### Décisions produit
-- Récurrences : une occurrence non faite **reste en retard** (cumul) ; « le 29/30/31 » est ramené au dernier jour des mois courts (`BYMONTHDAY=N,-1;BYSETPOS=1`) ; les jours ouvrés vont du lundi au vendredi, sans jours fériés. Génération à la demande, idempotente grâce à `UNIQUE(recurrence_id, occurrence_date)`. Une récurrence modifiée ou supprimée ne touche jamais aux occurrences terminées.
+- Récurrences : une occurrence non faite **reste en retard** (cumul) ; « le 29/30/31 » est ramené au dernier jour des mois courts (`BYMONTHDAY=N,-1;BYSETPOS=1`), de même que « chaque année le 29 février » ; les jours ouvrés vont du lundi au vendredi, sans jours fériés. Génération à la demande, idempotente grâce à `UNIQUE(recurrence_id, occurrence_date)`. Une récurrence modifiée ou supprimée ne touche jamais aux occurrences terminées.
+  - `src/lib/recurrence/presets.ts` (partagé, sans dépendance) : préréglage → RRULE, libellés, validation. Le client envoie un **préréglage**, et le serveur en recalcule la RRULE (colonne `rrule`) ; le préréglage est stocké en JSON (colonne `preset`) pour rouvrir le formulaire.
+  - `src/lib/server/recurrence/engine.ts` : seul module qui importe `rrule` (côté serveur uniquement ; l'aperçu passe par `POST /api/<espace>/recurrences/preview`). `vite.config.ts` déclare `ssr.noExternal: ['rrule']`, car son point d'entrée Node est en CommonJS.
+  - `generate.ts` : appelé par le load de la liste. Les modifications de titre, notes et priorité sont reportées sur les occurrences ouvertes ; une nouvelle règle ne vaut que pour les dates pas encore générées ; la reprise après une pause ne rattrape pas la pause.
+  - Suppression : logique (`deleted_at`), elle retire les occurrences ouvertes sauf avec `?occurrences=keep`.
 - Hors ligne : lecture seule (dernière liste en cache, aucune écriture).
 - Synchronisation : rechargement sur `visibilitychange` et sur `online`, sans polling.
 - Filtres et tri : mémorisés par espace et par appareil dans un cookie (`tdl_view_<espace>`, `src/lib/view-cookie.ts`), lu au rendu serveur pour éviter un affichage non filtré. La recherche texte n'est pas mémorisée. Logique de filtrage dans `src/lib/filters.ts`, appliquée côté client sur la liste ouverte.
@@ -65,7 +69,9 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - Indentation par tabulations, guillemets simples (style Prettier par défaut de SvelteKit).
 - Performance : moins de ~100 Ko de JS initial gzippé, Lighthouse mobile ≥ 95. Pas de dépendance client lourde ; ce qui peut rester côté serveur y reste.
 - Tests : `tests/*.test.ts`. `tests/helpers.ts` fournit `createTestDb`, `seedSpaces`, `fakeEvent` (pour appeler directement un handler) et `statusOf`.
-- E2E : `e2e/*.spec.ts`. Attendre l'hydratation (`networkidle`) après chaque navigation ou rechargement, avant d'interagir.
+- E2E : `e2e/*.spec.ts`. Attendre l'hydratation (`networkidle`) après chaque navigation ou rechargement, avant d'interagir. Avant un rechargement, attendre la réponse de l'écriture en cours (`saved()` dans `e2e/tasks.spec.ts`), sinon le rechargement l'annule. Le premier run après un changement de dépendances ou de `vite.config.ts` peut échouer pendant que Vite réoptimise : relancer.
+- Formulaires : labels associés par `for`/`id` (`$props.id()`), jamais en enveloppant un `<select>` (son nom accessible inclurait le texte des options).
+- Une liste modifiée localement après un appel d'API part d'un `$derived(data.x)` réassignable, jamais d'une mutation de `data`.
 
 ### Interface
 - `src/lib/tasks.svelte.ts` (`TaskStore`) : mises à jour optimistes. L'affichage combine la liste du serveur, les créations non confirmées et les modifications en cours ; les opérations d'une même tâche partent dans l'ordre. Une création échouée reste affichée avec « Réessayer » ; une modification échouée est annulée et signalée par un toast.
