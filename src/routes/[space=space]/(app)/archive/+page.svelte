@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { ApiError, request } from '$lib/api';
 	import { cursorParam, groupByDay, type ArchivePage } from '$lib/archive';
+	import ArchiveDetail from '$lib/components/ArchiveDetail.svelte';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
 	import Toast, { type ToastMessage } from '$lib/components/Toast.svelte';
 	import { formatDue, todayInParis } from '$lib/dates';
@@ -31,18 +32,23 @@
 		toastTimer = setTimeout(() => (toast = null), 5000);
 	}
 
+	/** Exécute un appel d'API ; en cas d'échec, affiche l'erreur et renvoie false. */
 	async function attempt(run: () => Promise<unknown>) {
 		if (network.offline) {
 			showToast(OFFLINE_MESSAGE);
-			return;
+			return false;
 		}
 		try {
 			await run();
+			return true;
 		} catch (e) {
 			if (e instanceof ApiError && e.status === 401) goto(`/${data.space}/unlock`);
 			else showToast('Échec. Vérifie ta connexion.');
+			return false;
 		}
 	}
+
+	let detail = $state<Task | null>(null);
 
 	// La recherche passe par l'URL : le serveur renvoie la première page correspondante.
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -67,7 +73,7 @@
 	}
 
 	function reopen(task: Task) {
-		attempt(async () => {
+		return attempt(async () => {
 			await request('PATCH', `/api/${data.space}/tasks/${task.id}`, { status: 'open' });
 			tasks = tasks.filter((t) => t.id !== task.id);
 			showToast(`« ${task.title} » est de retour dans Tâches.`);
@@ -75,7 +81,7 @@
 	}
 
 	function remove(task: Task) {
-		attempt(async () => {
+		return attempt(async () => {
 			await request('DELETE', `/api/${data.space}/tasks/${task.id}`);
 			tasks = tasks.filter((t) => t.id !== task.id);
 			confirming = null;
@@ -112,7 +118,7 @@
 			<ul class="list">
 				{#each group.tasks as task (task.id)}
 					<li>
-						<div class="body">
+						<button class="body" type="button" aria-haspopup="dialog" onclick={() => (detail = task)}>
 							<span class="title">{task.title}</span>
 							<span class="meta">
 								<PriorityBadge priority={task.priority} />
@@ -120,7 +126,7 @@
 								{#if task.recurrenceId}<span title="Récurrente" aria-label="Récurrente">↻</span>{/if}
 							</span>
 							{#if task.notes}<span class="notes">{task.notes}</span>{/if}
-						</div>
+						</button>
 						{#if confirming === task.id}
 							<div class="confirm" role="group" aria-label="Confirmer la suppression">
 								<span>Supprimer définitivement ?</span>
@@ -153,6 +159,16 @@
 			{loadingMore ? 'Chargement…' : 'Afficher plus'}
 		</button>
 	{/if}
+{/if}
+
+{#if detail}
+	{@const task = detail}
+	<ArchiveDetail
+		{task}
+		onreopen={() => reopen(task)}
+		ondelete={() => remove(task)}
+		onclose={() => (detail = null)}
+	/>
 {/if}
 
 <Toast {toast} ondismiss={() => (toast = null)} />
@@ -199,6 +215,12 @@
 		flex: 1 1 240px;
 		gap: 2px;
 		min-width: 0;
+		min-height: var(--tap);
+		padding: 0;
+		border: none;
+		background: none;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	.title {

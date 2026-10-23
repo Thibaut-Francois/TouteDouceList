@@ -53,6 +53,21 @@ const FULL = new Intl.DateTimeFormat('fr-FR', {
 	year: 'numeric'
 });
 
+const INSTANT = new Intl.DateTimeFormat('fr-FR', {
+	timeZone: 'Europe/Paris',
+	weekday: 'short',
+	day: 'numeric',
+	month: 'short',
+	year: 'numeric',
+	hour: '2-digit',
+	minute: '2-digit'
+});
+
+/** Horodatage (ms UTC) à l'heure de Paris : « ven. 23 oct. 2026, 14:05 ». */
+export function formatInstant(ms: number) {
+	return INSTANT.format(new Date(ms));
+}
+
 /** « mar. 27 oct. 2026 » */
 export function formatFull(date: string) {
 	return FULL.format(toUtc(date));
