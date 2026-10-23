@@ -1,6 +1,6 @@
 # TouteDouceList
 
-To-do list personnelle (un seul utilisateur), installable en PWA, avec deux espaces étanches **Pro** et **Perso** protégés chacun par un mot de passe. Priorité absolue : ouvrir l'app, ajouter et cocher une tâche en quelques secondes.
+To-do list personnelle (un seul utilisateur), installable en PWA, avec deux espaces étanches **Pro** et **Perso**, choisis à chaque lancement (écran `/`). **Pro est en accès libre** (choix assumé de l'utilisateur, en sachant que quiconque a l'adresse du site peut l'ouvrir) ; **Perso** se déverrouille avec le **code du jour** : mois puis jour, heure de Paris (23/10 → `1023`), vérifié côté serveur. Priorité absolue : ouvrir l'app, ajouter et cocher une tâche en quelques secondes.
 
 Le plan complet et validé, phase par phase, est dans `C:\Users\thibf\.claude\plans\quirky-bubbling-cocoa.md`. **Chaque phase est validée par l'utilisateur avant de passer à la suivante. Un commit par étape fonctionnelle.** Ne rien ajouter hors périmètre sans le proposer d'abord (hors périmètre : notifications, emails, rappels, multi-utilisateur, partage, inscription).
 
@@ -8,7 +8,6 @@ Le plan complet et validé, phase par phase, est dans `C:\Users\thibf\.claude\pl
 - SvelteKit 2 + Svelte 5 (runes), TypeScript strict, CSS natif (pas de librairie de composants)
 - `@sveltejs/adapter-vercel`, région `cdg1` (Paris)
 - Turso (libSQL) + Drizzle ORM ; même driver `@libsql/client` en local (`file:local.db`) et en tests
-- `@node-rs/argon2` (argon2id) pour les mots de passe
 - `rrule` pour les récurrences (phase 4), **côté serveur uniquement**
 - Vitest (unitaires et intégration sur une vraie base SQLite)
 
@@ -23,16 +22,16 @@ npm run check        # svelte-check / TypeScript
 npm run build        # build de production
 npm run db:generate  # génère une migration SQL après modification de schema.ts
 npm run db:migrate   # applique les migrations sur DATABASE_URL
-npm run setup        # migrations + création/mise à jour des espaces depuis PASSWORD_PRO / PASSWORD_PERSO
+npm run setup        # migrations + création des deux espaces s'ils manquent
 npm run setup:prod   # idem sur la base Turso, à partir de .env.production (jamais commité, jamais lu par Claude)
 ```
-Variables d'environnement : voir `.env.example`. Changer un mot de passe via `npm run setup` déconnecte tous les appareils de l'espace.
+Variables d'environnement : voir `.env.example` (base de données uniquement ; aucun mot de passe à configurer).
 
 Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (création de liens symboliques, `EPERM`), sauf si le mode développeur de Windows est activé. Le build client dans `.svelte-kit/output/client` est quand même produit, et le build Vercel (sous Linux) n'est pas concerné. Avec `E2E_PREVIEW=1`, `svelte.config.js` utilise l'adapter Node : le build réussit et `vite preview` sert le build de production (tests PWA, Lighthouse).
 
 ## Déploiement
-- Vercel (Hobby) relié au dépôt GitHub : chaque push sur `main` déploie. Région des fonctions `cdg1`. Variables Vercel : `DATABASE_URL` (`libsql://…turso.io`) et `DATABASE_AUTH_TOKEN`. Les mots de passe ne vont **pas** sur Vercel : seul leur hachage est en base.
-- Turso : base en Europe. Après une nouvelle migration, lancer `npm run setup:prod` (migrations, puis mise à jour des mots de passe, ce qui déconnecte les appareils) ou `npx tsx scripts/migrate.ts --env=.env.production` (migrations seules).
+- Vercel (Hobby) relié au dépôt GitHub : chaque push sur `main` déploie. Région des fonctions `cdg1`. Variables Vercel : `DATABASE_URL` (`libsql://…turso.io`) et `DATABASE_AUTH_TOKEN`.
+- Turso : base en Europe. Après une nouvelle migration, lancer `npm run setup:prod`.
 - Lighthouse : lancer la CLI avec Node et `CHROME_PATH` pointant vers le Chromium de Playwright, avec `--chrome-flags=--headless=new --no-sandbox`. Via `npx`, sous Windows, Chrome ne démarre pas. Page connectée : `--extra-headers=<fichier JSON {"Cookie":"tdl_perso=…"}>`.
 
 ## PWA et hors ligne
@@ -52,10 +51,11 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - `src/hooks.server.ts` : refuse toute requête non-GET dont l'`Origin` diffère (CSRF), injecte `locals.db`.
 
 ### Règles d'isolation (à ne jamais contourner)
+- Accès : `isProtected(space)` (`src/lib/spaces.ts`), vrai pour Perso seulement. `requireSpace` laisse passer Pro sans session et exige une session pour Perso.
 - Chaque load et chaque endpoint d'un espace commence par `await requireSpace(event, event.params.space)` (avec `{ onLocked: 'redirect' }` pour les pages). Les loads de layout et de page s'exécutent en parallèle : **chaque** load vérifie lui-même l'accès.
-- Chaque fonction de `repo/` prend `spaceId` en paramètre obligatoire et filtre sur `space_id` dans le `WHERE`, y compris pour les UPDATE et DELETE par id. Une ressource d'un autre espace donne un 404, jamais une fuite.
-- Un cookie de session par espace (`tdl_pro`, `tdl_perso`) : httpOnly, Secure, SameSite=Lax, 180 jours avec prolongation glissante. En base, on ne stocke que le SHA-256 du jeton.
-- Tout nouvel endpoint ajoute ses cas dans `tests/isolation.test.ts`.
+- Chaque fonction de `repo/` prend `spaceId` en paramètre obligatoire et filtre sur `space_id` dans le `WHERE`, y compris pour les UPDATE et DELETE par id. Une ressource d'un autre espace donne un 404, jamais une fuite. **C'est ce qui empêche l'API Pro, ouverte à tous, d'atteindre une donnée Perso.**
+- Code du jour : `dailyCode()` dans `auth.ts`, comparé en temps constant, avec la limitation des tentatives (5 échecs par IP sur 15 min, 20 par heure pour l'espace). Session Perso : cookie `tdl_perso` httpOnly, Secure, SameSite=Lax, 180 jours avec prolongation glissante ; en base, on ne stocke que le SHA-256 du jeton. « Verrouiller » n'existe que pour Perso.
+- Tout nouvel endpoint ajoute ses cas dans `tests/isolation.test.ts` : refus pour un visiteur sans session côté Perso, 404 entre espaces dans les deux sens.
 
 ### Conventions de données
 - Dates de tâche : texte `YYYY-MM-DD`, en dates flottantes (sans heure ni fuseau). « Aujourd'hui » se calcule en Europe/Paris.
@@ -74,7 +74,9 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - Synchronisation : rechargement sur `visibilitychange` et sur `online`, sans polling.
 - Filtres et tri : mémorisés par espace et par appareil dans un cookie (`tdl_view_<espace>`, `src/lib/view-cookie.ts`), lu au rendu serveur pour éviter un affichage non filtré. La recherche texte n'est pas mémorisée. Logique de filtrage dans `src/lib/filters.ts`, appliquée côté client sur la liste ouverte.
 - Priorités : badge avec le chiffre (l'information ne repose pas sur la couleur seule). Couleurs dans `src/lib/priorities.ts`, contraste AA vérifié par `tests/priorities.test.ts`.
-- E2E : ne jamais saisir de mauvais mot de passe sur un espace partagé par plusieurs tests (le limiteur bloquerait l'IP de test).
+- E2E : ne jamais saisir de mauvais code Perso (le limiteur bloquerait l'IP de test pour les autres tests). `e2e/helpers.ts` fournit `todayCode`, `unlockPerso` et `openPro`. Workers limités à 2 (au-delà, saturation et délais dépassés).
+- Fenêtres modales : `<dialog class="modal" use:lightDismiss>` avec un contenu `.modal-body` (`src/app.css`) ; un clic sur le fond ferme sans enregistrer. Le panneau de filtres flotte au-dessus de la liste, avec un fond invisible qui capte le clic extérieur (le ferme sans rien déclencher dessous) ; Échap le ferme aussi.
+- Création : sélecteur d'urgence 1 à 4 à côté du champ (`pointerdown` sans défaut pour garder le focus), remis à « Faible » après chaque création ; la syntaxe `!n` l'emporte.
 
 ## Conventions de code
 - Interface, messages et commentaires en français ; identifiants de code en anglais.

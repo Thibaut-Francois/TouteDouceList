@@ -17,6 +17,8 @@ const PWA_TESTS = /offline\.spec\.ts/;
 export default defineConfig({
 	testDir: 'e2e',
 	fullyParallel: true,
+	// Au-delà, le serveur de dev et celui de preview saturent la machine : délais dépassés aléatoires.
+	workers: 2,
 	projects: [
 		{
 			name: 'pc',

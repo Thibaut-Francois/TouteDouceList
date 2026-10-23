@@ -130,6 +130,74 @@ test('le raccourci N ne se déclenche pas pendant la saisie', async ({ page, isM
 	await expect(page.getByLabel('Nouvelle tâche')).toHaveValue('Une tâche avec des n');
 });
 
+test('niveau d’urgence choisi à la création, puis retour à « Faible »', async ({ page, isMobile }) => {
+	await unlock(page);
+	const input = page.getByLabel('Nouvelle tâche');
+	await expect(input).toHaveAttribute('placeholder', 'Nouvelle tâche');
+
+	const urgent = unique('Appeler le notaire');
+	await openQuickAdd(page, isMobile);
+	await page.keyboard.type(urgent);
+	const picker = (n: number, label: string) => page.getByRole('button', { name: `Urgence ${n} · ${label}` });
+	await expect(picker(3, 'Faible')).toHaveAttribute('aria-pressed', 'true');
+	await picker(2, 'Élevée').click();
+	// Le champ garde le focus : sur mobile, la surcouche reste ouverte.
+	await expect(input).toBeFocused();
+	await expect(picker(2, 'Élevée')).toHaveAttribute('aria-pressed', 'true');
+	await page.keyboard.press('Enter');
+
+	const item = page.getByRole('listitem').filter({ hasText: urgent });
+	await expect(item.getByRole('img', { name: 'Priorité 2 · Élevée' })).toBeVisible();
+	await expect(picker(3, 'Faible')).toHaveAttribute('aria-pressed', 'true');
+
+	// La syntaxe l'emporte sur le sélecteur.
+	const critical = unique('Fuite d’eau');
+	await page.keyboard.type(`${critical} !1`);
+	await expect(picker(1, 'Critique')).toHaveAttribute('aria-pressed', 'true');
+	await page.keyboard.press('Enter');
+	await expect(
+		page.getByRole('listitem').filter({ hasText: critical }).getByRole('img', { name: 'Priorité 1 · Critique' })
+	).toBeVisible();
+});
+
+test('un clic à côté ferme la fenêtre de modification (sans enregistrer) et le panneau de filtres', async ({
+	page,
+	isMobile
+}) => {
+	await unlock(page);
+	const title = unique('Clic dehors');
+	await openQuickAdd(page, isMobile);
+	await page.keyboard.type(title);
+	await page.keyboard.press('Enter');
+
+	await page.getByRole('button', { name: title }).click();
+	const dialog = page.getByRole('dialog', { name: 'Modifier la tâche' });
+	await dialog.getByLabel('Titre').fill(`${title} modifié`);
+	await page.mouse.click(4, 4);
+	await expect(dialog).toBeHidden();
+	await expect(page.getByRole('listitem').filter({ hasText: `${title} modifié` })).toHaveCount(0);
+
+	// Un clic dans la fenêtre (sur un libellé) ne la ferme pas.
+	await page.getByRole('button', { name: title }).click();
+	await dialog.getByText('Notes', { exact: true }).click();
+	await expect(dialog).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+
+	const filters = page.getByRole('button', { name: 'Filtres' });
+	await filters.click();
+	await expect(filters).toHaveAttribute('aria-expanded', 'true');
+	// Le clic dehors (sur l'onglet Récurrences) ferme le panneau sans rien déclencher dessous.
+	await page.getByRole('link', { name: 'Récurrences' }).click({ force: true });
+	await expect(filters).toHaveAttribute('aria-expanded', 'false');
+	await expect(page).toHaveURL('/perso');
+	await expect(page.getByRole('listitem').filter({ hasText: title })).toBeVisible();
+
+	await filters.click();
+	await page.keyboard.press('Escape');
+	await expect(filters).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('au lancement : choix de l’espace ; Pro s’ouvre directement, Perso demande le code du jour', async ({
 	page
 }) => {

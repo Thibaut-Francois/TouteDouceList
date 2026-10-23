@@ -62,3 +62,47 @@ test('archive : recherche, réouverture et suppression définitive', async ({ pa
 	await expect(page.getByRole('listitem').filter({ hasText: kept })).toBeVisible();
 	await expect(page.getByRole('listitem').filter({ hasText: removed })).toHaveCount(0);
 });
+
+test('archive : une tâche s’ouvre sur sa fiche (notes et dates)', async ({ page }) => {
+	await unlock(page);
+	const title = `Déclaration impôts ${Math.random().toString(36).slice(2, 8)}`;
+	const input = page.getByLabel('Nouvelle tâche');
+	await input.focus();
+	await input.fill(title);
+	await input.press('Enter');
+
+	// Notes multilignes et échéance, puis complétion.
+	await page.getByRole('button', { name: title }).click();
+	const editor = page.getByRole('dialog', { name: 'Modifier la tâche' });
+	await editor.getByLabel('Notes').fill('Numéro fiscal dans le classeur.\nAvis 2025 joint.');
+	await editor.getByLabel('Échéance').fill('2026-05-20');
+	const edited = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.ok());
+	await editor.getByRole('button', { name: 'Enregistrer' }).click();
+	await edited;
+	const completed = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.ok());
+	await page.getByRole('listitem').filter({ hasText: title }).getByRole('checkbox').click();
+	await completed;
+
+	await page.getByRole('link', { name: 'Archive' }).click();
+	await expect(page).toHaveURL('/perso/archive');
+	await page.waitForLoadState('networkidle');
+
+	const openDetail = () => page.getByRole('button', { name: new RegExp(`^${title}`) }).click();
+	await openDetail();
+	const detail = page.getByRole('dialog', { name: title });
+	await expect(detail.getByText('Numéro fiscal dans le classeur.')).toBeVisible();
+	await expect(detail.getByText('Avis 2025 joint.')).toBeVisible();
+	await expect(detail.getByText('mer. 20 mai 2026')).toBeVisible();
+	await expect(detail.getByText('Créée le')).toBeVisible();
+	await expect(detail.getByText('Terminée le')).toBeVisible();
+
+	// Un clic à côté ferme la fiche.
+	await page.mouse.click(4, 4);
+	await expect(detail).toBeHidden();
+
+	// Rouvrir depuis la fiche.
+	await openDetail();
+	await detail.getByRole('button', { name: 'Rouvrir' }).click();
+	await expect(detail).toBeHidden();
+	await expect(page.getByRole('listitem').filter({ hasText: title })).toHaveCount(0);
+});

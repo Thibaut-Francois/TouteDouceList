@@ -38,6 +38,8 @@ test('récurrence : création, occurrence du jour, pause et suppression', async 
 	await page.getByRole('button', { name: 'Récurrente', exact: true }).click();
 	await expect(occurrence).toBeVisible();
 	await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();
+	// Panneau ouvert : un clic à côté ne ferait que le fermer.
+	await page.keyboard.press('Escape');
 
 	// Pause, puis suppression avec son occurrence ouverte.
 	await goTo(page, 'Récurrences', '/perso/recurrences');
