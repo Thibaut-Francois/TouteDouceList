@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { sanitizePreset } from '$lib/recurrence/presets';
 import type { RecurrenceInput, RecurrencePatch } from './repo/recurrences';
-import type { NewTaskInput, TaskPatch } from './repo/tasks';
+import type { ArchiveCursor, NewTaskInput, TaskPatch } from './repo/tasks';
 
 type Body = Record<string, unknown>;
 
@@ -106,6 +106,14 @@ export function parseRecurrencePatch(body: Body): RecurrencePatch {
 		patch.active = body.active;
 	}
 	return patch;
+}
+
+/** Curseur d'archive « <completedAt>:<id> » ; absent → première page. */
+export function parseArchiveCursor(value: string | null): ArchiveCursor | undefined {
+	if (value === null || value === '') return undefined;
+	const match = /^(\d{1,15}):([0-9a-f-]{36})$/i.exec(value);
+	if (!match || !UUID_RE.test(match[2])) invalid('after');
+	return { completedAt: Number(match[1]), id: match[2].toLowerCase() };
 }
 
 export function parseTaskPatch(body: Body): TaskPatch {

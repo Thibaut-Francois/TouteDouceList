@@ -80,7 +80,9 @@ export const tasks = sqliteTable(
 		recurrenceId: text('recurrence_id').references(() => recurrences.id, {
 			onDelete: 'set null'
 		}),
-		occurrenceDate: text('occurrence_date')
+		occurrenceDate: text('occurrence_date'),
+		// Titre + notes en minuscules sans accents (searchText) : recherche de l'archive.
+		search: text('search').notNull().default('')
 	},
 	(t) => [
 		uniqueIndex('tasks_recurrence_occurrence_uq').on(t.recurrenceId, t.occurrenceDate),

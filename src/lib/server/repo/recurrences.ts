@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { addDays } from '$lib/dates';
 import { presetToRrule, sanitizePreset, type Preset } from '$lib/recurrence/presets';
 import type { SpaceId } from '$lib/spaces';
+import { searchText } from '$lib/text';
 import type { Db } from '../db/client';
 import { recurrences, tasks } from '../db/schema';
 
@@ -100,7 +101,21 @@ export async function updateRecurrence(
 	const shared = Object.fromEntries(
 		(['title', 'notes', 'priority'] as const).filter((k) => patch[k] !== undefined).map((k) => [k, patch[k]])
 	);
-	if (Object.keys(shared).length > 0) {
+	if (patch.title !== undefined || patch.notes !== undefined) {
+		// La colonne search dépend du titre et des notes de chaque occurrence.
+		const open = await db
+			.select({ id: tasks.id, title: tasks.title, notes: tasks.notes })
+			.from(tasks)
+			.where(openOccurrences(spaceId, id));
+		for (const occurrence of open) {
+			const title = patch.title ?? occurrence.title;
+			const notes = patch.notes ?? occurrence.notes;
+			await db
+				.update(tasks)
+				.set({ ...shared, search: searchText(title, notes) })
+				.where(and(openOccurrences(spaceId, id), eq(tasks.id, occurrence.id)));
+		}
+	} else if (Object.keys(shared).length > 0) {
 		await db.update(tasks).set(shared).where(openOccurrences(spaceId, id));
 	}
 

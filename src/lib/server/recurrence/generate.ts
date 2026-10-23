@@ -2,6 +2,7 @@ import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { addDays } from '$lib/dates';
 import type { SpaceId } from '$lib/spaces';
+import { searchText } from '$lib/text';
 import type { Db } from '../db/client';
 import { recurrences, tasks } from '../db/schema';
 import { dueRecurrences } from '../repo/recurrences';
@@ -35,7 +36,8 @@ export async function generateDueOccurrences(db: Db, spaceId: SpaceId, today: st
 						status: 'open' as const,
 						createdAt: now,
 						recurrenceId: r.id,
-						occurrenceDate: date
+						occurrenceDate: date,
+						search: searchText(r.title, r.notes)
 					}))
 				)
 				.onConflictDoNothing()

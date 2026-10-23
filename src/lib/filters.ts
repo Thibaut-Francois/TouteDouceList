@@ -2,6 +2,7 @@ import type { Task } from '$lib/server/repo/tasks';
 import { addDays, dayOfWeek } from './dates';
 import { PRIORITIES } from './priorities';
 import { compareDefault } from './sort';
+import { searchText, searchWords } from './text';
 
 export const DUE_FILTERS = ['overdue', 'today', 'week', 'none'] as const;
 export const KIND_FILTERS = ['single', 'recurring'] as const;
@@ -66,12 +67,6 @@ export function sanitizeView(raw: unknown): View {
 	};
 }
 
-const normalize = (text: string) =>
-	text
-		.toLowerCase()
-		.normalize('NFD')
-		.replace(/[̀-ͯ]/g, '');
-
 /** Dimanche de la semaine en cours (semaine du lundi au dimanche). */
 function endOfWeek(today: string) {
 	return addDays(today, (7 - dayOfWeek(today)) % 7);
@@ -118,7 +113,7 @@ function comparator(sort: SortKey, today: string) {
 }
 
 export function applyView<T extends Filterable>(tasks: T[], view: View, today: string): T[] {
-	const words = normalize(view.query).split(/\s+/).filter(Boolean);
+	const words = searchWords(view.query);
 	return tasks
 		.filter((task) => {
 			if (view.priorities.length && !view.priorities.includes(task.priority)) return false;
@@ -128,7 +123,7 @@ export function applyView<T extends Filterable>(tasks: T[], view: View, today: s
 				if (!view.kinds.includes(kind)) return false;
 			}
 			if (words.length) {
-				const text = normalize(`${task.title} ${task.notes}`);
+				const text = searchText(task.title, task.notes);
 				if (!words.every((w) => text.includes(w))) return false;
 			}
 			return true;

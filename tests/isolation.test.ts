@@ -5,6 +5,7 @@ import { generateDueOccurrences } from '$lib/server/recurrence/generate';
 import { getRecurrence } from '$lib/server/repo/recurrences';
 import { getTask } from '$lib/server/repo/tasks';
 import type { SpaceId } from '$lib/spaces';
+import * as archive from '../src/routes/api/[space=space]/archive/+server';
 import * as recurrenceById from '../src/routes/api/[space=space]/recurrences/[id]/+server';
 import * as recurrencePreview from '../src/routes/api/[space=space]/recurrences/preview/+server';
 import * as recurrenceList from '../src/routes/api/[space=space]/recurrences/+server';
@@ -85,6 +86,17 @@ describe.each([
 		it('ne la voit pas dans sa liste', async () => {
 			const res = await call(taskList.GET, { as: intruder, space: intruder });
 			expect(await res.json()).toEqual([]);
+		});
+
+		it("ne voit pas l'archive de l'autre espace, ni ses tâches terminées dans la sienne", async () => {
+			const opts = { as: owner, space: owner, id, method: 'PATCH', body: { status: 'done' } };
+			expect(await statusOf(call(taskById.PATCH, opts))).toBe(200);
+
+			expect(await statusOf(call(archive.GET, { as: intruder, space: owner }))).toBe(401);
+			const own = await call(archive.GET, { as: intruder, space: intruder });
+			expect((await own.json()).tasks).toEqual([]);
+			const theirs = await call(archive.GET, { as: owner, space: owner });
+			expect((await theirs.json()).tasks).toHaveLength(1);
 		});
 
 		it("ne peut pas l'écraser en réutilisant son id à la création (409)", async () => {
