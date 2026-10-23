@@ -1,8 +1,20 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import { SPACES, SPACE_NAMES } from '$lib/spaces';
 
 	let { data, children } = $props();
+
+	// Synchronisation entre appareils : rechargement au retour sur l'app ou du réseau.
+	let lastRefresh = Date.now();
+	function refresh() {
+		if (document.visibilityState !== 'visible' || Date.now() - lastRefresh < 5000) return;
+		lastRefresh = Date.now();
+		invalidateAll();
+	}
 </script>
+
+<svelte:document onvisibilitychange={refresh} />
+<svelte:window ononline={refresh} />
 
 <header class="topbar">
 	<!-- Pas de préchargement : il déclencherait le load (et la mémorisation) de l'autre espace. -->

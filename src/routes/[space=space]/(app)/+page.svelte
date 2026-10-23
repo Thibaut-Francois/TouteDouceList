@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SpaceTasks from '$lib/components/SpaceTasks.svelte';
 	import { SPACE_NAMES } from '$lib/spaces';
 
 	let { data } = $props();
@@ -8,12 +9,7 @@
 	<title>{SPACE_NAMES[data.space]} · TouteDouceList</title>
 </svelte:head>
 
-{#if data.tasks.length === 0}
-	<p class="muted">Aucune tâche.</p>
-{:else}
-	<ul>
-		{#each data.tasks as task (task.id)}
-			<li>{task.title}</li>
-		{/each}
-	</ul>
-{/if}
+<!-- Une bascule d'espace recrée la liste et son état local. -->
+{#key data.space}
+	<SpaceTasks space={data.space} tasks={data.tasks} />
+{/key}
