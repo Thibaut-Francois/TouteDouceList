@@ -13,6 +13,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"test:e2e": "playwright test",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "tsx scripts/migrate.ts",
 		"setup": "tsx scripts/setup.ts"
@@ -23,6 +24,7 @@
 		"drizzle-orm": "0.45.4"
 	},
 	"devDependencies": {
+		"@playwright/test": "1.64.0",
 		"@sveltejs/adapter-vercel": "6.3.4",
 		"@sveltejs/kit": "2.70.3",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",

@@ -18,6 +18,7 @@ Les versions sont épinglées exactement dans `package.json`. Avant toute nouvel
 ```
 npm run dev          # serveur de dev (lit .env)
 npm test             # Vitest
+npm run test:e2e     # Playwright, PC + mobile (Pixel 7) ; base temporaire neuve, serveur de dev sur :4174
 npm run check        # svelte-check / TypeScript
 npm run build        # build de production
 npm run db:generate  # génère une migration SQL après modification de schema.ts
@@ -62,3 +63,9 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - Indentation par tabulations, guillemets simples (style Prettier par défaut de SvelteKit).
 - Performance : moins de ~100 Ko de JS initial gzippé, Lighthouse mobile ≥ 95. Pas de dépendance client lourde ; ce qui peut rester côté serveur y reste.
 - Tests : `tests/*.test.ts`. `tests/helpers.ts` fournit `createTestDb`, `seedSpaces`, `fakeEvent` (pour appeler directement un handler) et `statusOf`.
+- E2E : `e2e/*.spec.ts`. Attendre l'hydratation (`networkidle`) après chaque navigation ou rechargement, avant d'interagir.
+
+### Interface
+- `src/lib/tasks.svelte.ts` (`TaskStore`) : mises à jour optimistes. L'affichage combine la liste du serveur, les créations non confirmées et les modifications en cours ; les opérations d'une même tâche partent dans l'ordre. Une création échouée reste affichée avec « Réessayer » ; une modification échouée est annulée et signalée par un toast.
+- `src/lib/api.ts` : réessais (500 ms, 1,5 s, 4 s) sur erreur réseau ou 5xx, jamais sur 4xx. Un 401 renvoie vers le déverrouillage.
+- Sur mobile (≤ 640 px), le champ de création est toujours `position: fixed`, ouvert comme fermé, pour ne jamais décaler la liste sous le doigt. Fermé, il reste focusable (pas de `display: none`) pour que le bouton flottant ouvre le clavier dans le même geste.
