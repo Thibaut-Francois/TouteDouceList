@@ -2,30 +2,57 @@ import { defineConfig, devices } from '@playwright/test';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = 4174;
+const DEV_PORT = 4174;
+const PREVIEW_PORT = 4175;
 
-// Une base neuve par lancement ; les workers héritent de la variable définie par le processus principal.
-process.env.E2E_DB ??= join(tmpdir(), `toutedoucelist-e2e-${Date.now()}.db`).replaceAll('\\', '/');
+// Bases neuves par lancement ; les workers héritent des variables définies par le processus principal.
+const stamp = Date.now();
+process.env.E2E_DB ??= join(tmpdir(), `toutedoucelist-e2e-${stamp}.db`).replaceAll('\\', '/');
+process.env.E2E_PREVIEW_DB ??= join(tmpdir(), `toutedoucelist-e2e-preview-${stamp}.db`).replaceAll('\\', '/');
+
+const passwords = { PASSWORD_PRO: 'e2e-password-pro', PASSWORD_PERSO: 'e2e-password-perso' };
+
+// Les tests PWA (service worker, hors ligne) tournent sur un build de production :
+// en dev, Vite sert le JS module par module, hors du précache.
+const PWA_TESTS = /offline\.spec\.ts/;
 
 export default defineConfig({
 	testDir: 'e2e',
 	fullyParallel: true,
-	use: { baseURL: `http://localhost:${PORT}` },
 	projects: [
-		{ name: 'pc', use: { ...devices['Desktop Chrome'] } },
-		{ name: 'mobile', use: { ...devices['Pixel 7'] } }
-	],
-	webServer: {
-		command: `npm run setup && npx vite dev --port ${PORT} --strictPort`,
-		url: `http://localhost:${PORT}`,
-		reuseExistingServer: false,
-		// Les erreurs serveur (5xx) apparaissent dans la sortie des tests.
-		stdout: 'pipe',
-		stderr: 'pipe',
-		env: {
-			DATABASE_URL: `file:${process.env.E2E_DB}`,
-			PASSWORD_PRO: 'e2e-password-pro',
-			PASSWORD_PERSO: 'e2e-password-perso'
+		{
+			name: 'pc',
+			testIgnore: PWA_TESTS,
+			use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${DEV_PORT}` }
+		},
+		{
+			name: 'mobile',
+			testIgnore: PWA_TESTS,
+			use: { ...devices['Pixel 7'], baseURL: `http://localhost:${DEV_PORT}` }
+		},
+		{
+			name: 'pwa',
+			testMatch: PWA_TESTS,
+			use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${PREVIEW_PORT}` }
 		}
-	}
+	],
+	webServer: [
+		{
+			command: `npm run setup && npx vite dev --port ${DEV_PORT} --strictPort`,
+			url: `http://localhost:${DEV_PORT}`,
+			reuseExistingServer: false,
+			// Les erreurs serveur (5xx) apparaissent dans la sortie des tests.
+			stdout: 'pipe',
+			stderr: 'pipe',
+			env: { DATABASE_URL: `file:${process.env.E2E_DB}`, ...passwords }
+		},
+		{
+			command: `npm run setup && npx vite build && npx vite preview --port ${PREVIEW_PORT} --strictPort`,
+			url: `http://localhost:${PREVIEW_PORT}`,
+			reuseExistingServer: false,
+			timeout: 180_000,
+			stderr: 'pipe',
+			env: { DATABASE_URL: `file:${process.env.E2E_PREVIEW_DB}`, E2E_PREVIEW: '1', ...passwords }
+		}
+	]
 });
