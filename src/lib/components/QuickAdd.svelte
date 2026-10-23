@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { formatDue, todayInParis } from '$lib/dates';
 	import { network } from '$lib/network.svelte';
-	import { DEFAULT_PRIORITY, PRIORITY_LABELS } from '$lib/priorities';
+	import { DEFAULT_PRIORITY, PRIORITIES, PRIORITY_COLORS, PRIORITY_LABELS } from '$lib/priorities';
 	import { parseQuickAdd } from '$lib/quick-add';
 	import type { NewTask } from '$lib/tasks.svelte';
 
@@ -9,9 +9,12 @@
 
 	let value = $state('');
 	let open = $state(false);
+	let picked = $state(DEFAULT_PRIORITY);
 	let input: HTMLInputElement;
 
 	const parsed = $derived(value.trim() ? parseQuickAdd(value, todayInParis()) : null);
+	// La syntaxe !1 à !4 l'emporte sur le sélecteur.
+	const priority = $derived(parsed?.priority ?? picked);
 
 	/** Appelé de façon synchrone dans le geste (bouton, raccourci) pour que le clavier mobile s'ouvre. */
 	export function focus() {
@@ -21,12 +24,9 @@
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
 		if (!parsed) return;
-		onadd({
-			title: parsed.title,
-			priority: parsed.priority ?? DEFAULT_PRIORITY,
-			dueDate: parsed.dueDate
-		});
+		onadd({ title: parsed.title, priority, dueDate: parsed.dueDate });
 		value = '';
+		picked = DEFAULT_PRIORITY;
 	}
 
 	function onkeydown(event: KeyboardEvent) {
@@ -37,21 +37,41 @@
 </script>
 
 <form class="quick-add" class:open onsubmit={submit}>
-	<input
-		bind:this={input}
-		bind:value
-		class="field"
-		type="text"
-		placeholder="Nouvelle tâche… (!1 demain)"
-		aria-label="Nouvelle tâche"
-		autocomplete="off"
-		enterkeyhint="done"
-		maxlength="500"
-		disabled={network.offline}
-		onfocus={() => (open = true)}
-		onblur={() => (open = value !== '')}
-		{onkeydown}
-	/>
+	<div class="row">
+		<input
+			bind:this={input}
+			bind:value
+			class="field"
+			type="text"
+			placeholder="Nouvelle tâche"
+			aria-label="Nouvelle tâche"
+			autocomplete="off"
+			enterkeyhint="done"
+			maxlength="500"
+			disabled={network.offline}
+			onfocus={() => (open = true)}
+			onblur={() => (open = value !== '')}
+			{onkeydown}
+		/>
+		<div class="priorities" role="group" aria-label="Urgence">
+			{#each PRIORITIES as p (p)}
+				<!-- pointerdown sans défaut : le champ garde le focus (sinon la surcouche mobile se ferme). -->
+				<button
+					class="priority"
+					type="button"
+					style:--c={PRIORITY_COLORS[p]}
+					aria-pressed={priority === p}
+					aria-label="Urgence {p} · {PRIORITY_LABELS[p]}"
+					title={PRIORITY_LABELS[p]}
+					disabled={network.offline}
+					onpointerdown={(e) => e.preventDefault()}
+					onclick={() => (picked = p)}
+				>
+					{p}
+				</button>
+			{/each}
+		</div>
+	</div>
 	{#if parsed && (parsed.priority || parsed.dueDate)}
 		<p class="hint" aria-live="polite">
 			{#if parsed.priority}Priorité {PRIORITY_LABELS[parsed.priority]}{/if}
@@ -70,9 +90,47 @@
 		margin: 4px 0 16px;
 	}
 
+	.row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
 	.field {
+		flex: 1 1 220px;
 		min-height: 48px;
 		font-size: 1rem;
+	}
+
+	.priorities {
+		display: flex;
+		gap: 4px;
+	}
+
+	.priority {
+		width: 44px;
+		min-height: 48px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--surface);
+		color: var(--c);
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.priority[aria-pressed='true'] {
+		border-color: var(--c);
+		background: color-mix(in srgb, var(--c) 15%, var(--surface));
+	}
+
+	@media (max-width: 640px) {
+		.priorities {
+			flex: 1 1 100%;
+		}
+
+		.priority {
+			flex: 1;
+		}
 	}
 
 	.hint {
