@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { SPACES, SPACE_NAMES } from '$lib/spaces';
 
 	let { data, form } = $props();
@@ -13,7 +14,7 @@
 <main class="unlock">
 	<h1>Espace {SPACE_NAMES[data.space]}</h1>
 
-	<form method="POST" action="?/unlock">
+	<form method="POST" action="?/unlock" use:enhance>
 		<!-- Identifiant caché : permet au gestionnaire de mots de passe de distinguer les deux espaces. -->
 		<input type="text" name="username" value="toutedoucelist-{data.space}" autocomplete="username" hidden />
 		<label for="password">Mot de passe</label>
