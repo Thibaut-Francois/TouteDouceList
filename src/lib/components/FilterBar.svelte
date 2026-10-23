@@ -28,6 +28,13 @@
 	}
 </script>
 
+<svelte:window
+	onkeydown={(e) => {
+		if (open && e.key === 'Escape') open = false;
+	}}
+/>
+
+<div class="filters">
 <div class="bar">
 	<input
 		class="field search"
@@ -55,6 +62,9 @@
 </div>
 
 {#if open}
+	<!-- Fond invisible : un clic à côté ferme le panneau sans rien déclencher dessous. -->
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div class="backdrop" onclick={() => (open = false)}></div>
 	<div id="filters" class="panel">
 		<fieldset>
 			<legend>Priorité</legend>
@@ -104,8 +114,20 @@
 		{/if}
 	</div>
 {/if}
+</div>
 
 <style>
+	/* Le panneau flotte au-dessus de la liste : l'ouvrir ou le fermer ne la décale jamais. */
+	.filters {
+		position: relative;
+	}
+
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 30;
+	}
+
 	.bar {
 		display: flex;
 		flex-wrap: wrap;
@@ -140,13 +162,20 @@
 	}
 
 	.panel {
+		position: absolute;
+		top: calc(100% - 4px);
+		left: 0;
+		right: 0;
+		z-index: 31;
 		display: grid;
 		gap: 12px;
-		margin-bottom: 12px;
+		max-height: 70dvh;
+		overflow-y: auto;
 		padding: 12px;
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
 		background: var(--surface);
+		box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
 	}
 
 	fieldset {

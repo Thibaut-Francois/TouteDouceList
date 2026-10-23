@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { lightDismiss } from '$lib/actions/light-dismiss';
 	import { PRIORITIES, PRIORITY_LABELS } from '$lib/priorities';
 	import type { TaskPatch } from '$lib/server/repo/tasks';
 	import type { ViewTask } from '$lib/tasks.svelte';
@@ -35,8 +36,8 @@
 	}
 </script>
 
-<dialog bind:this={dialog} {onclose} aria-labelledby="editor-title">
-	<form onsubmit={submit}>
+<dialog class="modal" bind:this={dialog} use:lightDismiss {onclose} aria-labelledby="editor-title">
+	<form class="modal-body" onsubmit={submit}>
 		<h2 id="editor-title">Modifier la tâche</h2>
 
 		<div class="group">
@@ -80,30 +81,6 @@
 </dialog>
 
 <style>
-	dialog {
-		width: min(560px, calc(100vw - 24px));
-		max-height: calc(100dvh - 24px);
-		padding: 20px;
-		border: 1px solid var(--border);
-		border-radius: 14px;
-		background: var(--surface);
-		color: var(--text);
-	}
-
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.6);
-	}
-
-	form {
-		display: grid;
-		gap: 14px;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 1.15rem;
-	}
-
 	.group {
 		display: grid;
 		gap: 6px;

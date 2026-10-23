@@ -95,3 +95,29 @@ a {
 .error {
 	color: var(--danger);
 }
+
+/* Fenêtres modales. Pas de padding sur le dialog : voir lightDismiss ($lib/actions/light-dismiss). */
+dialog.modal {
+	width: min(560px, calc(100vw - 24px));
+	max-height: calc(100dvh - 24px);
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	background: var(--surface);
+	color: var(--text);
+}
+
+dialog.modal::backdrop {
+	background: rgb(0 0 0 / 0.6);
+}
+
+.modal-body {
+	display: grid;
+	gap: 14px;
+	padding: 20px;
+}
+
+.modal-body h2 {
+	margin: 0;
+	font-size: 1.15rem;
+}

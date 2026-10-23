@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { lightDismiss } from '$lib/actions/light-dismiss';
 	import { request } from '$lib/api';
 	import { formatFull, todayInParis } from '$lib/dates';
 	import { DEFAULT_PRIORITY, PRIORITIES, PRIORITY_LABELS } from '$lib/priorities';
@@ -96,9 +97,9 @@
 	}
 </script>
 
-<dialog bind:this={dialog} {onclose} aria-labelledby="{uid}-heading">
+<dialog class="modal" bind:this={dialog} use:lightDismiss {onclose} aria-labelledby="{uid}-heading">
 	{#if confirmingDelete && initial}
-		<div class="confirm">
+		<div class="modal-body">
 			<h2 id="{uid}-heading">Supprimer « {initial.title} » ?</h2>
 			<p class="muted">
 				Plus aucune occurrence ne sera créée. Les occurrences déjà terminées restent dans l'archive.
@@ -121,7 +122,7 @@
 			</div>
 		</div>
 	{:else}
-		<form onsubmit={submit}>
+		<form class="modal-body" onsubmit={submit}>
 			<h2 id="{uid}-heading">{initial ? 'Modifier la récurrence' : 'Nouvelle récurrence'}</h2>
 
 			<div class="group">
@@ -291,31 +292,6 @@
 </dialog>
 
 <style>
-	dialog {
-		width: min(560px, calc(100vw - 24px));
-		max-height: calc(100dvh - 24px);
-		padding: 20px;
-		border: 1px solid var(--border);
-		border-radius: 14px;
-		background: var(--surface);
-		color: var(--text);
-	}
-
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.6);
-	}
-
-	form,
-	.confirm {
-		display: grid;
-		gap: 14px;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 1.15rem;
-	}
-
 	.group {
 		display: grid;
 		gap: 6px;
