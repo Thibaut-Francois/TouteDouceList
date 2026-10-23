@@ -1,4 +1,6 @@
 import { error } from '@sveltejs/kit';
+import { sanitizePreset } from '$lib/recurrence/presets';
+import type { RecurrenceInput, RecurrencePatch } from './repo/recurrences';
 import type { NewTaskInput, TaskPatch } from './repo/tasks';
 
 type Body = Record<string, unknown>;
@@ -71,6 +73,39 @@ export function parseNewTask(body: Body): NewTaskInput {
 		priority: body.priority === undefined ? 3 : priority(body.priority),
 		dueDate: body.dueDate === undefined ? null : dueDate(body.dueDate)
 	};
+}
+
+function preset(value: unknown) {
+	return sanitizePreset(value) ?? invalid('preset');
+}
+
+function startDate(value: unknown) {
+	if (typeof value !== 'string' || !isValidDate(value)) invalid('startDate');
+	return value;
+}
+
+export function parseRecurrenceInput(body: Body): RecurrenceInput {
+	return {
+		title: title(body.title),
+		notes: body.notes === undefined ? '' : notes(body.notes),
+		priority: body.priority === undefined ? 3 : priority(body.priority),
+		preset: preset(body.preset),
+		startDate: startDate(body.startDate)
+	};
+}
+
+export function parseRecurrencePatch(body: Body): RecurrencePatch {
+	const patch: RecurrencePatch = {};
+	if (body.title !== undefined) patch.title = title(body.title);
+	if (body.notes !== undefined) patch.notes = notes(body.notes);
+	if (body.priority !== undefined) patch.priority = priority(body.priority);
+	if (body.preset !== undefined) patch.preset = preset(body.preset);
+	if (body.startDate !== undefined) patch.startDate = startDate(body.startDate);
+	if (body.active !== undefined) {
+		if (typeof body.active !== 'boolean') invalid('active');
+		patch.active = body.active;
+	}
+	return patch;
 }
 
 export function parseTaskPatch(body: Body): TaskPatch {

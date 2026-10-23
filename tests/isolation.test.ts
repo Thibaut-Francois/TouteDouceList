@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cookieName, createSession } from '$lib/server/auth';
 import type { Db } from '$lib/server/db/client';
+import { generateDueOccurrences } from '$lib/server/recurrence/generate';
+import { getRecurrence } from '$lib/server/repo/recurrences';
 import { getTask } from '$lib/server/repo/tasks';
 import type { SpaceId } from '$lib/spaces';
+import * as recurrenceById from '../src/routes/api/[space=space]/recurrences/[id]/+server';
+import * as recurrencePreview from '../src/routes/api/[space=space]/recurrences/preview/+server';
+import * as recurrenceList from '../src/routes/api/[space=space]/recurrences/+server';
 import * as taskById from '../src/routes/api/[space=space]/tasks/[id]/+server';
 import * as taskList from '../src/routes/api/[space=space]/tasks/+server';
 import { createTestDb, fakeEvent, seedSpaces, statusOf } from './helpers';
@@ -132,3 +137,69 @@ describe('propriétaire', () => {
 		expect(await res.json()).toHaveLength(1);
 	});
 });
+
+describe.each([
+	{ owner: 'pro', intruder: 'perso' },
+	{ owner: 'perso', intruder: 'pro' }
+] satisfies { owner: SpaceId; intruder: SpaceId }[])(
+	'une session $intruder face à une récurrence $owner',
+	({ owner, intruder }) => {
+		let id: string;
+		const body = {
+			title: `Routine ${owner}`,
+			preset: { kind: 'daily' },
+			startDate: '2026-10-20'
+		};
+
+		beforeEach(async () => {
+			const res = await call(recurrenceList.POST, { as: owner, space: owner, method: 'POST', body });
+			expect(res.status).toBe(201);
+			id = (await res.json()).id;
+			await generateDueOccurrences(db, owner, '2026-10-22');
+		});
+
+		it("ne peut pas utiliser l'API de récurrences de l'autre espace (401)", async () => {
+			const opts = { as: intruder, space: owner, id };
+			expect(await statusOf(call(recurrenceList.GET, { as: intruder, space: owner }))).toBe(401);
+			expect(
+				await statusOf(call(recurrenceList.POST, { as: intruder, space: owner, method: 'POST', body }))
+			).toBe(401);
+			expect(await statusOf(call(recurrenceById.GET, opts))).toBe(401);
+			expect(
+				await statusOf(call(recurrenceById.PATCH, { ...opts, method: 'PATCH', body: { title: 'x' } }))
+			).toBe(401);
+			expect(await statusOf(call(recurrenceById.DELETE, { ...opts, method: 'DELETE' }))).toBe(401);
+			expect(
+				await statusOf(
+					call(recurrencePreview.POST, { as: intruder, space: owner, method: 'POST', body })
+				)
+			).toBe(401);
+		});
+
+		it('ne la voit pas, ne la modifie pas et ne la supprime pas via son propre espace (404)', async () => {
+			const opts = { as: intruder, space: intruder, id };
+			expect(await statusOf(call(recurrenceById.GET, opts))).toBe(404);
+			expect(
+				await statusOf(
+					call(recurrenceById.PATCH, { ...opts, method: 'PATCH', body: { title: 'piraté', active: false } })
+				)
+			).toBe(404);
+			expect(await statusOf(call(recurrenceById.DELETE, { ...opts, method: 'DELETE' }))).toBe(404);
+
+			const list = await call(recurrenceList.GET, { as: intruder, space: intruder });
+			expect(await list.json()).toEqual([]);
+
+			expect(await getRecurrence(db, owner, id)).toMatchObject({
+				title: `Routine ${owner}`,
+				active: true,
+				openCount: 3
+			});
+		});
+
+		it("la génération de son espace ne crée rien à partir des récurrences de l'autre", async () => {
+			expect(await generateDueOccurrences(db, intruder, '2026-10-30')).toBe(0);
+			const res = await call(taskList.GET, { as: intruder, space: intruder });
+			expect(await res.json()).toEqual([]);
+		});
+	}
+);
