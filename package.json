@@ -16,7 +16,8 @@
 		"test:e2e": "playwright test",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "tsx scripts/migrate.ts",
-		"setup": "tsx scripts/setup.ts"
+		"setup": "tsx scripts/setup.ts",
+		"setup:prod": "tsx scripts/setup.ts --env=.env.production"
 	},
 	"dependencies": {
 		"@libsql/client": "0.18.0",

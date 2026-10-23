@@ -18,16 +18,28 @@ Les versions sont épinglées exactement dans `package.json`. Avant toute nouvel
 ```
 npm run dev          # serveur de dev (lit .env)
 npm test             # Vitest
-npm run test:e2e     # Playwright, PC + mobile (Pixel 7) ; base temporaire neuve, serveur de dev sur :4174
+npm run test:e2e     # Playwright : PC + mobile sur le serveur de dev (:4174), PWA/hors ligne sur un build de production (:4175)
 npm run check        # svelte-check / TypeScript
 npm run build        # build de production
 npm run db:generate  # génère une migration SQL après modification de schema.ts
 npm run db:migrate   # applique les migrations sur DATABASE_URL
 npm run setup        # migrations + création/mise à jour des espaces depuis PASSWORD_PRO / PASSWORD_PERSO
+npm run setup:prod   # idem sur la base Turso, à partir de .env.production (jamais commité, jamais lu par Claude)
 ```
 Variables d'environnement : voir `.env.example`. Changer un mot de passe via `npm run setup` déconnecte tous les appareils de l'espace.
 
-Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (création de liens symboliques, `EPERM`), sauf si le mode développeur de Windows est activé. Le build client dans `.svelte-kit/output/client` est quand même produit, et le build Vercel (sous Linux) n'est pas concerné.
+Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (création de liens symboliques, `EPERM`), sauf si le mode développeur de Windows est activé. Le build client dans `.svelte-kit/output/client` est quand même produit, et le build Vercel (sous Linux) n'est pas concerné. Avec `E2E_PREVIEW=1`, `svelte.config.js` utilise l'adapter Node : le build réussit et `vite preview` sert le build de production (tests PWA, Lighthouse).
+
+## Déploiement
+- Vercel (Hobby) relié au dépôt GitHub : chaque push sur `main` déploie. Région des fonctions `cdg1`. Variables Vercel : `DATABASE_URL` (`libsql://…turso.io`) et `DATABASE_AUTH_TOKEN`. Les mots de passe ne vont **pas** sur Vercel : seul leur hachage est en base.
+- Turso : base en Europe. Après une nouvelle migration, lancer `npm run setup:prod` (migrations, puis mise à jour des mots de passe, ce qui déconnecte les appareils) ou `npx tsx scripts/migrate.ts --env=.env.production` (migrations seules).
+- Lighthouse : lancer la CLI avec Node et `CHROME_PATH` pointant vers le Chromium de Playwright, avec `--chrome-flags=--headless=new --no-sandbox`. Via `npx`, sous Windows, Chrome ne démarre pas. Page connectée : `--extra-headers=<fichier JSON {"Cookie":"tdl_perso=…"}>`.
+
+## PWA et hors ligne
+- `static/manifest.webmanifest`, icônes dans `static/icons/` (générées avec System.Drawing ; la maskable garde le motif dans la zone sûre de 80 %).
+- `src/service-worker.ts` : précache des assets versionnés (`build` + `files`). Pages d'espace et `__data.json` en réseau d'abord, la dernière réponse 200 non redirigée étant conservée dans le cache `tdl-pages` (`isCachablePage`, `src/lib/offline.ts`). Jamais l'API ni `/unlock`.
+- Hors ligne (`network.offline`, `src/lib/network.svelte.ts`) : bandeau, champ de création et cases désactivés ; `TaskStore` et les pages refusent toute écriture avec un toast.
+- Le verrouillage, et l'affichage de la page de déverrouillage (session expirée), effacent la copie hors ligne de l'espace (`forgetOfflinePages`).
 
 ## Architecture
 - `src/lib/spaces.ts` : identifiants des espaces (`'pro' | 'perso'`) et libellés.
