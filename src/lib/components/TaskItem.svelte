@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatDue } from '$lib/dates';
+	import { network } from '$lib/network.svelte';
 	import type { ViewTask } from '$lib/tasks.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
 
@@ -28,7 +29,7 @@
 		role="checkbox"
 		aria-checked="false"
 		aria-label="Terminer « {task.title} »"
-		disabled={failed}
+		disabled={failed || network.offline}
 		onclick={oncomplete}
 	></button>
 

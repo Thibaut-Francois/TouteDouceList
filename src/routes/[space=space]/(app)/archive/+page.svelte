@@ -6,6 +6,7 @@
 	import Toast, { type ToastMessage } from '$lib/components/Toast.svelte';
 	import { formatDue, todayInParis } from '$lib/dates';
 	import { QUERY_MAX } from '$lib/filters';
+	import { network, OFFLINE_MESSAGE } from '$lib/network.svelte';
 	import type { Task } from '$lib/server/repo/tasks';
 	import { SPACE_NAMES } from '$lib/spaces';
 
@@ -31,6 +32,10 @@
 	}
 
 	async function attempt(run: () => Promise<unknown>) {
+		if (network.offline) {
+			showToast(OFFLINE_MESSAGE);
+			return;
+		}
 		try {
 			await run();
 		} catch (e) {
@@ -91,6 +96,7 @@
 	placeholder="Rechercher dans l'archive"
 	aria-label="Rechercher dans l'archive"
 	maxlength={QUERY_MAX}
+	disabled={network.offline}
 	value={query}
 	oninput={(e) => search(e.currentTarget.value)}
 />

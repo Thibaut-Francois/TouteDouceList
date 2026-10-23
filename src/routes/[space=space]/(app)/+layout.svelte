@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import { network } from '$lib/network.svelte';
+	import { forgetOfflinePages } from '$lib/offline';
 	import { SPACES, SPACE_NAMES } from '$lib/spaces';
 
 	let { data, children } = $props();
@@ -18,6 +20,14 @@
 		lastRefresh = Date.now();
 		invalidateAll();
 	}
+
+	// Verrouiller efface aussi la copie hors ligne de l'espace sur cet appareil.
+	async function lock(event: SubmitEvent) {
+		event.preventDefault();
+		const form = event.currentTarget as HTMLFormElement;
+		await forgetOfflinePages(data.space).catch(() => {});
+		form.submit();
+	}
 </script>
 
 <svelte:document onvisibilitychange={refresh} />
@@ -30,7 +40,7 @@
 			<a href="/{s}" aria-current={s === data.space ? 'page' : undefined}>{SPACE_NAMES[s]}</a>
 		{/each}
 	</nav>
-	<form method="POST" action="/{data.space}/unlock?/lock">
+	<form method="POST" action="/{data.space}/unlock?/lock" onsubmit={lock}>
 		<button class="btn ghost" type="submit">Verrouiller</button>
 	</form>
 	<nav class="tabs" aria-label="Sections">
@@ -39,6 +49,10 @@
 		{/each}
 	</nav>
 </header>
+
+{#if network.offline}
+	<p class="offline" role="status">Hors ligne · lecture seule</p>
+{/if}
 
 <main class="container">
 	{@render children()}
@@ -58,6 +72,17 @@
 		margin: 0 auto;
 		padding: 8px 16px 0;
 		background: var(--bg);
+	}
+
+	.offline {
+		max-width: 720px;
+		margin: 8px auto 0;
+		padding: 8px 16px;
+		border-radius: var(--radius);
+		background: var(--surface-2);
+		color: var(--text-muted);
+		font-size: 0.9rem;
+		text-align: center;
 	}
 
 	.tabs {

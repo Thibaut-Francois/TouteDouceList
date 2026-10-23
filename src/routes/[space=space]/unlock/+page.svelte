@@ -1,10 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { forgetOfflinePages } from '$lib/offline';
 	import { SPACES, SPACE_NAMES } from '$lib/spaces';
 
 	let { data, form } = $props();
 
 	const other = $derived(SPACES.find((s) => s !== data.space)!);
+
+	// Espace verrouillé (bouton ou session expirée) : sa copie hors ligne ne doit plus être lisible.
+	onMount(() => {
+		forgetOfflinePages(data.space).catch(() => {});
+	});
 </script>
 
 <svelte:head>

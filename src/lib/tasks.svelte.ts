@@ -3,6 +3,7 @@ import type { Task, TaskPatch } from '$lib/server/repo/tasks';
 import type { SpaceId } from '$lib/spaces';
 import { ApiError, request } from './api';
 import { todayInParis } from './dates';
+import { network, OFFLINE_MESSAGE } from './network.svelte';
 import { compareDefault } from './sort';
 
 export type ViewTask = Task & { sync?: 'saving' | 'failed' };
@@ -47,7 +48,15 @@ export class TaskStore {
 		for (const task of tasks) this.#creates.delete(task.id);
 	}
 
+	/** Hors ligne, l'app est en lecture seule : aucune écriture n'est tentée. */
+	#readOnly() {
+		if (!network.offline) return false;
+		this.onError(OFFLINE_MESSAGE);
+		return true;
+	}
+
 	add(input: NewTask) {
+		if (this.#readOnly()) return;
 		const task: ViewTask = {
 			...input,
 			id: crypto.randomUUID(),
@@ -66,13 +75,13 @@ export class TaskStore {
 
 	retry(id: string) {
 		const task = this.#creates.get(id);
-		if (!task || task.sync !== 'failed') return;
+		if (!task || task.sync !== 'failed' || this.#readOnly()) return;
 		this.#creates.set(id, { ...task, sync: 'saving' });
 		this.#saveCreate(task);
 	}
 
 	update(id: string, patch: TaskPatch) {
-		if (Object.keys(patch).length === 0) return;
+		if (Object.keys(patch).length === 0 || this.#readOnly()) return;
 		this.#patches.set(id, { ...this.#patches.get(id), ...patch });
 		const version = (this.#versions.get(id) ?? 0) + 1;
 		this.#versions.set(id, version);

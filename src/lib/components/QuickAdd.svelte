@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatDue, todayInParis } from '$lib/dates';
+	import { network } from '$lib/network.svelte';
 	import { DEFAULT_PRIORITY, PRIORITY_LABELS } from '$lib/priorities';
 	import { parseQuickAdd } from '$lib/quick-add';
 	import type { NewTask } from '$lib/tasks.svelte';
@@ -46,6 +47,7 @@
 		autocomplete="off"
 		enterkeyhint="done"
 		maxlength="500"
+		disabled={network.offline}
 		onfocus={() => (open = true)}
 		onblur={() => (open = value !== '')}
 		{onkeydown}
@@ -59,7 +61,7 @@
 	{/if}
 </form>
 
-<button class="fab" class:hidden={open} type="button" aria-label="Ajouter une tâche" onclick={focus}>
+<button class="fab" class:hidden={open || network.offline} type="button" aria-label="Ajouter une tâche" onclick={focus}>
 	<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
 </button>
 

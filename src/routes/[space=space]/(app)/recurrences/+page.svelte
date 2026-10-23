@@ -3,6 +3,7 @@
 	import { ApiError, request } from '$lib/api';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
 	import RecurrenceEditor from '$lib/components/RecurrenceEditor.svelte';
+	import { network, OFFLINE_MESSAGE } from '$lib/network.svelte';
 	import Toast, { type ToastMessage } from '$lib/components/Toast.svelte';
 	import { describePreset } from '$lib/recurrence/presets';
 	import type { Recurrence, RecurrenceInput } from '$lib/server/repo/recurrences';
@@ -26,6 +27,10 @@
 
 	/** Exécute un appel d'API ; en cas d'échec, affiche l'erreur et renvoie false. */
 	async function attempt(run: () => Promise<unknown>) {
+		if (network.offline) {
+			showToast(OFFLINE_MESSAGE);
+			return false;
+		}
 		try {
 			await run();
 			return true;
@@ -87,7 +92,12 @@
 
 <div class="head">
 	<h1>Récurrences</h1>
-	<button class="btn primary" type="button" onclick={() => (editing = { recurrence: null })}>
+	<button
+		class="btn primary"
+		type="button"
+		disabled={network.offline}
+		onclick={() => (editing = { recurrence: null })}
+	>
 		Nouvelle récurrence
 	</button>
 </div>
@@ -109,7 +119,12 @@
 						{#if !recurrence.active}<span class="tag">En pause</span>{/if}
 					</span>
 				</button>
-				<button class="btn ghost" type="button" onclick={() => toggleActive(recurrence)}>
+				<button
+					class="btn ghost"
+					type="button"
+					disabled={network.offline}
+					onclick={() => toggleActive(recurrence)}
+				>
 					{recurrence.active ? 'Mettre en pause' : 'Reprendre'}
 				</button>
 			</li>
