@@ -34,7 +34,7 @@ test('création rapide avec syntaxe, complétion et annulation', async ({ page, 
 
 	const item = page.getByRole('listitem').filter({ hasText: title });
 	await expect(item).toContainText('Demain');
-	await expect(item).toContainText('!1');
+	await expect(item.getByRole('img', { name: 'Priorité 1 · Critique' })).toHaveText('1');
 	await expect(page.getByLabel('Nouvelle tâche')).toHaveValue('');
 
 	await reload(page);
@@ -57,10 +57,10 @@ test('une tâche cochée ne revient pas après rechargement', async ({ page, isM
 	await page.keyboard.press('Enter');
 
 	const item = page.getByRole('listitem').filter({ hasText: title });
+	const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.ok());
 	await item.getByRole('checkbox').click();
 	await expect(item).toHaveCount(0);
-	// Laisse partir la requête avant de recharger.
-	await page.waitForLoadState('networkidle');
+	await saved;
 	await reload(page);
 	await expect(item).toHaveCount(0);
 });
@@ -82,11 +82,12 @@ test('édition du titre, des notes, de la priorité et de l’échéance', async
 	await expect(dialog).toBeHidden();
 
 	const item = page.getByRole('listitem').filter({ hasText: `${title} relu` });
-	await expect(item).toContainText('!2');
+	const badge = item.getByRole('img', { name: 'Priorité 2 · Élevée' });
+	await expect(badge).toBeVisible();
 	await expect(item).toContainText('2030');
 
 	await reload(page);
-	await expect(item).toContainText('!2');
+	await expect(badge).toBeVisible();
 	await page.getByRole('button', { name: `${title} relu` }).click();
 	await expect(dialog.getByLabel('Notes')).toHaveValue('Penser aux annexes');
 });
@@ -126,9 +127,7 @@ test('basculer vers un espace verrouillé demande son mot de passe', async ({ pa
 	await unlock(page);
 	await page.getByRole('link', { name: 'Pro' }).click();
 	await expect(page).toHaveURL('/pro/unlock');
-	await page.getByLabel('Mot de passe').fill('e2e-password-perso');
-	await page.getByRole('button', { name: 'Déverrouiller' }).click();
-	// Selon le nombre d'essais déjà faits depuis cette IP, le limiteur peut avoir pris le relais.
-	await expect(page.getByRole('alert')).toHaveText(/Mot de passe incorrect|Trop de tentatives/);
-	await expect(page).toHaveURL('/pro/unlock');
+	await expect(page.getByLabel('Mot de passe')).toBeVisible();
+	// Pas de mauvais mot de passe ici : les échecs depuis l'IP de test bloqueraient Pro pour
+	// les autres tests (limiteur). Ce cas est couvert par tests/auth.test.ts.
 });

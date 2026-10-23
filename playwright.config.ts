@@ -19,6 +19,9 @@ export default defineConfig({
 		command: `npm run setup && npx vite dev --port ${PORT} --strictPort`,
 		url: `http://localhost:${PORT}`,
 		reuseExistingServer: false,
+		// Les erreurs serveur (5xx) apparaissent dans la sortie des tests.
+		stdout: 'pipe',
+		stderr: 'pipe',
 		env: {
 			DATABASE_URL: `file:${process.env.E2E_DB}`,
 			PASSWORD_PRO: 'e2e-password-pro',

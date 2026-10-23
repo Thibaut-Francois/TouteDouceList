@@ -55,7 +55,9 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - Récurrences : une occurrence non faite **reste en retard** (cumul) ; « le 29/30/31 » est ramené au dernier jour des mois courts (`BYMONTHDAY=N,-1;BYSETPOS=1`) ; les jours ouvrés vont du lundi au vendredi, sans jours fériés. Génération à la demande, idempotente grâce à `UNIQUE(recurrence_id, occurrence_date)`. Une récurrence modifiée ou supprimée ne touche jamais aux occurrences terminées.
 - Hors ligne : lecture seule (dernière liste en cache, aucune écriture).
 - Synchronisation : rechargement sur `visibilitychange` et sur `online`, sans polling.
-- Filtres et tri : mémorisés par espace dans `localStorage`, donc propres à chaque appareil.
+- Filtres et tri : mémorisés par espace et par appareil dans un cookie (`tdl_view_<espace>`, `src/lib/view-cookie.ts`), lu au rendu serveur pour éviter un affichage non filtré. La recherche texte n'est pas mémorisée. Logique de filtrage dans `src/lib/filters.ts`, appliquée côté client sur la liste ouverte.
+- Priorités : badge avec le chiffre (l'information ne repose pas sur la couleur seule). Couleurs dans `src/lib/priorities.ts`, contraste AA vérifié par `tests/priorities.test.ts`.
+- E2E : ne jamais saisir de mauvais mot de passe sur un espace partagé par plusieurs tests (le limiteur bloquerait l'IP de test).
 
 ## Conventions de code
 - Interface, messages et commentaires en français ; identifiants de code en anglais.
