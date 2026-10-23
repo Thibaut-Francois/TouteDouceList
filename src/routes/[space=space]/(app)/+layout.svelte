@@ -34,15 +34,17 @@
 <svelte:window ononline={refresh} />
 
 <header class="topbar">
-	<!-- Pas de préchargement : il déclencherait le load (et la mémorisation) de l'autre espace. -->
+	<!-- Pas de préchargement : il déclencherait la génération des récurrences de l'autre espace. -->
 	<nav class="switcher" aria-label="Espaces" data-sveltekit-preload-data="off">
 		{#each SPACES as s (s)}
 			<a href="/{s}" aria-current={s === data.space ? 'page' : undefined}>{SPACE_NAMES[s]}</a>
 		{/each}
 	</nav>
-	<form method="POST" action="/{data.space}/unlock?/lock" onsubmit={lock}>
-		<button class="btn ghost" type="submit">Verrouiller</button>
-	</form>
+	{#if data.lockable}
+		<form method="POST" action="/{data.space}/unlock?/lock" onsubmit={lock}>
+			<button class="btn ghost" type="submit">Verrouiller</button>
+		</form>
+	{/if}
 	<nav class="tabs" aria-label="Sections">
 		{#each tabs as tab (tab.href)}
 			<a href={tab.href} aria-current={page.url.pathname === tab.href ? 'page' : undefined}>{tab.label}</a>

@@ -1,13 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-// Espace Pro : les tests de tasks.spec.ts créent leurs tâches dans Perso.
-async function unlockPro(page: Page) {
-	await page.goto('/pro/unlock');
-	await page.getByLabel('Mot de passe').fill('e2e-password-pro');
-	await page.getByRole('button', { name: 'Déverrouiller' }).click();
-	await expect(page).toHaveURL('/pro');
-	await page.waitForLoadState('networkidle');
-}
+import { openPro, unlockPerso } from './helpers';
 
 async function add(page: Page, text: string) {
 	const input = page.getByLabel('Nouvelle tâche');
@@ -17,7 +9,8 @@ async function add(page: Page, text: string) {
 }
 
 test('filtres combinables, tri et mémorisation par espace', async ({ page }) => {
-	await unlockPro(page);
+	// Espace Pro : les tests de tasks.spec.ts créent leurs tâches dans Perso.
+	await openPro(page);
 	const tag = Math.random().toString(36).slice(2, 8);
 	const urgent = `Urgent ${tag}`;
 	const minor = `Mineure ${tag}`;
@@ -50,10 +43,7 @@ test('filtres combinables, tri et mémorisation par espace', async ({ page }) =>
 	await expect(row(dated)).toHaveCount(0);
 
 	// Mémorisation propre à l'espace : Perso n'est pas filtré.
-	await page.goto('/perso/unlock');
-	await page.getByLabel('Mot de passe').fill('e2e-password-perso');
-	await page.getByRole('button', { name: 'Déverrouiller' }).click();
-	await expect(page).toHaveURL('/perso');
+	await unlockPerso(page);
 	await expect(page.getByRole('button', { name: 'Filtres', exact: true })).toBeVisible();
 	await expect(page.getByRole('combobox', { name: 'Trier' })).toHaveValue('default');
 

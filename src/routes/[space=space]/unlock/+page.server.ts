@@ -7,31 +7,36 @@ import {
 	isUnlocked,
 	setSessionCookie
 } from '$lib/server/auth';
-import { isSpaceId } from '$lib/spaces';
+import { isProtected, isSpaceId, type SpaceId } from '$lib/spaces';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async (event) => {
-	const { space } = event.params;
+/** Seul un espace protégé a une page de déverrouillage ; les autres y sont renvoyés directement. */
+function protectedSpace(space: string): SpaceId {
 	if (!isSpaceId(space)) error(404, 'Espace inconnu');
+	if (!isProtected(space)) redirect(303, `/${space}`);
+	return space;
+}
+
+export const load: PageServerLoad = async (event) => {
+	const space = protectedSpace(event.params.space);
 	if (await isUnlocked(event, space)) redirect(303, `/${space}`);
 	return { space };
 };
 
 export const actions: Actions = {
 	unlock: async (event) => {
-		const { space } = event.params;
-		if (!isSpaceId(space)) error(404, 'Espace inconnu');
+		const space = protectedSpace(event.params.space);
 
-		const password = (await event.request.formData()).get('password');
-		if (typeof password !== 'string' || password.length === 0) {
-			return fail(400, { error: 'Mot de passe requis.' });
+		const code = (await event.request.formData()).get('code');
+		if (typeof code !== 'string' || code.trim().length === 0) {
+			return fail(400, { error: 'Code requis.' });
 		}
 
-		const result = await attemptUnlock(event.locals.db, space, password, event.getClientAddress());
+		const result = await attemptUnlock(event.locals.db, space, code, event.getClientAddress());
 		if (!result.ok) {
 			return result.reason === 'rate_limited'
 				? fail(429, { error: 'Trop de tentatives. Réessaie dans 15 minutes.' })
-				: fail(400, { error: 'Mot de passe incorrect.' });
+				: fail(400, { error: 'Code incorrect.' });
 		}
 
 		setSessionCookie(event.cookies, space, result.token);
@@ -39,8 +44,7 @@ export const actions: Actions = {
 	},
 
 	lock: async (event) => {
-		const { space } = event.params;
-		if (!isSpaceId(space)) error(404, 'Espace inconnu');
+		const space = protectedSpace(event.params.space);
 
 		const token = event.cookies.get(cookieName(space));
 		if (token) await deleteSession(event.locals.db, token);

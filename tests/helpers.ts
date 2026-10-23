@@ -2,14 +2,8 @@ import { isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
 import { join } from 'node:path';
 import { createDb, runMigrations, type Db } from '$lib/server/db/client';
 import { spaces } from '$lib/server/db/schema';
-import { hashPassword } from '$lib/server/password';
-import { SPACE_NAMES, SPACES, type SpaceId } from '$lib/spaces';
+import { SPACE_NAMES, SPACES } from '$lib/spaces';
 import { TEST_DB_DIR } from './global-setup';
-
-export const PASSWORDS: Record<SpaceId, string> = {
-	pro: 'mot-de-passe-pro',
-	perso: 'mot-de-passe-perso'
-};
 
 /** Base SQLite fraîche (fichier supprimé par global-setup en fin de run), migrations appliquées. */
 export async function createTestDb() {
@@ -21,11 +15,7 @@ export async function createTestDb() {
 
 export async function seedSpaces(db: Db) {
 	for (const space of SPACES) {
-		await db.insert(spaces).values({
-			id: space,
-			name: SPACE_NAMES[space],
-			passwordHash: await hashPassword(PASSWORDS[space])
-		});
+		await db.insert(spaces).values({ id: space, name: SPACE_NAMES[space] });
 	}
 }
 

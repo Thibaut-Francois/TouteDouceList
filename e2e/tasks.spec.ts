@@ -1,14 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-async function unlock(page: Page, space = 'perso', password = `e2e-password-${space}`) {
-	await page.goto(`/${space}`);
-	await expect(page).toHaveURL(`/${space}/unlock`);
-	await page.getByLabel('Mot de passe').fill(password);
-	await page.getByRole('button', { name: 'Déverrouiller' }).click();
-	await expect(page).toHaveURL(`/${space}`);
-	// Attend l'hydratation (en dev, Vite sert les modules un par un).
-	await page.waitForLoadState('networkidle');
-}
+import { todayCode, unlockPerso as unlock } from './helpers';
 
 async function reload(page: Page) {
 	await page.reload({ waitUntil: 'networkidle' });
@@ -139,11 +130,26 @@ test('le raccourci N ne se déclenche pas pendant la saisie', async ({ page, isM
 	await expect(page.getByLabel('Nouvelle tâche')).toHaveValue('Une tâche avec des n');
 });
 
-test('basculer vers un espace verrouillé demande son mot de passe', async ({ page }) => {
-	await unlock(page);
+test('au lancement : choix de l’espace ; Pro s’ouvre directement, Perso demande le code du jour', async ({
+	page
+}) => {
+	await page.goto('/');
 	await page.getByRole('link', { name: 'Pro' }).click();
-	await expect(page).toHaveURL('/pro/unlock');
-	await expect(page.getByLabel('Mot de passe')).toBeVisible();
-	// Pas de mauvais mot de passe ici : les échecs depuis l'IP de test bloqueraient Pro pour
+	await expect(page).toHaveURL('/pro');
+	await expect(page.getByRole('button', { name: 'Verrouiller' })).toHaveCount(0);
+
+	await page.goto('/');
+	await page.getByRole('link', { name: 'Perso' }).click();
+	await expect(page).toHaveURL('/perso/unlock');
+	await page.waitForLoadState('networkidle');
+	// Pas de mauvais code ici : les échecs depuis l'IP de test bloqueraient Perso pour
 	// les autres tests (limiteur). Ce cas est couvert par tests/auth.test.ts.
+	await page.getByLabel('Code').fill(todayCode());
+	await page.getByRole('button', { name: 'Déverrouiller' }).click();
+	await expect(page).toHaveURL('/perso');
+	await expect(page.getByRole('button', { name: 'Verrouiller' })).toBeVisible();
+
+	// Pro n'a pas de page de déverrouillage.
+	await page.goto('/pro/unlock');
+	await expect(page).toHaveURL('/pro');
 });

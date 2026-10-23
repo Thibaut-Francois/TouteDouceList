@@ -4,10 +4,10 @@ import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-o
 // Dates de tâche : texte 'YYYY-MM-DD' (dates flottantes, sans heure).
 // Horodatages : millisecondes UTC.
 
+// Plus de mot de passe stocké : Perso se déverrouille avec le code du jour (auth.ts).
 export const spaces = sqliteTable('spaces', {
 	id: text('id').primaryKey(),
-	name: text('name').notNull(),
-	passwordHash: text('password_hash').notNull()
+	name: text('name').notNull()
 });
 
 export const sessions = sqliteTable(

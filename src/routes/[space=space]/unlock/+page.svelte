@@ -2,11 +2,9 @@
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { forgetOfflinePages } from '$lib/offline';
-	import { SPACES, SPACE_NAMES } from '$lib/spaces';
+	import { SPACE_NAMES } from '$lib/spaces';
 
 	let { data, form } = $props();
-
-	const other = $derived(SPACES.find((s) => s !== data.space)!);
 
 	// Espace verrouillé (bouton ou session expirée) : sa copie hors ligne ne doit plus être lisible.
 	onMount(() => {
@@ -22,16 +20,17 @@
 	<h1>Espace {SPACE_NAMES[data.space]}</h1>
 
 	<form method="POST" action="?/unlock" use:enhance>
-		<!-- Identifiant caché : permet au gestionnaire de mots de passe de distinguer les deux espaces. -->
-		<input type="text" name="username" value="toutedoucelist-{data.space}" autocomplete="username" hidden />
-		<label for="password">Mot de passe</label>
+		<label for="code">Code</label>
 		<!-- svelte-ignore a11y_autofocus -->
 		<input
-			id="password"
-			class="field"
+			id="code"
+			class="field code"
 			type="password"
-			name="password"
-			autocomplete="current-password"
+			name="code"
+			inputmode="numeric"
+			pattern="[0-9]*"
+			maxlength="4"
+			autocomplete="off"
 			required
 			autofocus
 		/>
@@ -41,7 +40,7 @@
 		<button class="btn primary" type="submit">Déverrouiller</button>
 	</form>
 
-	<a href="/{other}" data-sveltekit-preload-data="off">Aller à l'espace {SPACE_NAMES[other]}</a>
+	<a href="/">Changer d'espace</a>
 </main>
 
 <style>
@@ -66,6 +65,12 @@
 	label {
 		color: var(--text-muted);
 		font-size: 0.9rem;
+	}
+
+	.code {
+		font-size: 1.4rem;
+		letter-spacing: 0.4em;
+		text-align: center;
 	}
 
 	.error {

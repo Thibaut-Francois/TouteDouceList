@@ -1,13 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { unlockPerso } from './helpers';
 
-// Espace Pro : le test le verrouille, ce qui ne doit pas gêner les tests de Perso.
-async function unlockPro(page: Page) {
-	await page.goto('/pro/unlock');
-	await page.getByLabel('Mot de passe').fill('e2e-password-pro');
-	await page.getByRole('button', { name: 'Déverrouiller' }).click();
-	await expect(page).toHaveURL('/pro');
-	await page.waitForLoadState('networkidle');
-}
+// Tourne sur le serveur de preview, avec sa propre base : verrouiller Perso ne gêne pas les autres tests.
 
 test('manifeste et icônes de la PWA', async ({ request }) => {
 	const manifest = await (await request.get('/manifest.webmanifest')).json();
@@ -23,7 +17,7 @@ test('hors ligne : dernière liste lisible, écriture désactivée ; le verrouil
 	page,
 	context
 }) => {
-	await unlockPro(page);
+	await unlockPerso(page);
 	await page.evaluate(() => navigator.serviceWorker.ready);
 
 	const title = `Hors ligne ${Math.random().toString(36).slice(2, 8)}`;
@@ -52,11 +46,11 @@ test('hors ligne : dernière liste lisible, écriture désactivée ; le verrouil
 
 	await page.waitForLoadState('networkidle');
 	await page.getByRole('button', { name: 'Verrouiller' }).click();
-	await expect(page).toHaveURL('/pro/unlock');
+	await expect(page).toHaveURL('/perso/unlock');
 	await page.waitForLoadState('networkidle');
 
 	await context.setOffline(true);
-	await page.goto('/pro').catch(() => {});
+	await page.goto('/perso').catch(() => {});
 	await expect(page.getByText("Cette page n'a pas encore été consultée sur cet appareil.")).toBeVisible();
 	await expect(page.getByText(title)).toHaveCount(0);
 	await context.setOffline(false);

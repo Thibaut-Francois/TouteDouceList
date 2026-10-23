@@ -1,12 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { unlockPerso } from './helpers';
 
-async function unlock(page: Page) {
-	await page.goto('/perso/unlock');
-	await page.getByLabel('Mot de passe').fill('e2e-password-perso');
-	await page.getByRole('button', { name: 'Déverrouiller' }).click();
-	await expect(page).toHaveURL('/perso');
-	await page.waitForLoadState('networkidle');
-}
+const unlock = unlockPerso;
 
 async function goTo(page: Page, tab: 'Tâches' | 'Récurrences', url: string) {
 	await page.getByRole('link', { name: tab }).click();

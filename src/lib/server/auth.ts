@@ -1,10 +1,10 @@
 import { error, redirect, type Cookies, type RequestEvent } from '@sveltejs/kit';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, count, eq, gt, lt, type SQL } from 'drizzle-orm';
-import { isSpaceId, type SpaceId } from '$lib/spaces';
+import { todayInParis } from '$lib/dates';
+import { isProtected, isSpaceId, type SpaceId } from '$lib/spaces';
 import type { Db } from './db/client';
-import { loginAttempts, sessions, spaces } from './db/schema';
-import { verifyPassword } from './password';
+import { loginAttempts, sessions } from './db/schema';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
@@ -86,6 +86,18 @@ export async function isRateLimited(db: Db, spaceId: SpaceId, ipHash: string, no
 	return spaceFailures >= SPACE_MAX_FAILURES;
 }
 
+/** Code du jour : le mois puis le jour, à l'heure de Paris (le 23/10 → « 1023 »). */
+export function dailyCode(now = Date.now()) {
+	const [, month, day] = todayInParis(new Date(now)).split('-');
+	return `${month}${day}`;
+}
+
+function matchesDailyCode(code: string, now: number) {
+	const expected = Buffer.from(dailyCode(now));
+	const given = Buffer.from(code);
+	return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
 export type UnlockResult =
 	| { ok: true; token: string }
 	| { ok: false; reason: 'invalid' | 'rate_limited' };
@@ -93,19 +105,14 @@ export type UnlockResult =
 export async function attemptUnlock(
 	db: Db,
 	spaceId: SpaceId,
-	password: string,
+	code: string,
 	ip: string,
 	now = Date.now()
 ): Promise<UnlockResult> {
 	const ipHash = sha256(ip);
 	if (await isRateLimited(db, spaceId, ipHash, now)) return { ok: false, reason: 'rate_limited' };
 
-	const [space] = await db
-		.select({ passwordHash: spaces.passwordHash })
-		.from(spaces)
-		.where(eq(spaces.id, spaceId))
-		.limit(1);
-	const ok = space !== undefined && (await verifyPassword(space.passwordHash, password));
+	const ok = isProtected(spaceId) && matchesDailyCode(code.trim(), now);
 
 	await db.insert(loginAttempts).values({ spaceId, ipHash, attemptedAt: now, success: ok });
 	await db.delete(loginAttempts).where(lt(loginAttempts.attemptedAt, now - DAY_MS));
@@ -131,6 +138,8 @@ export function clearSessionCookie(cookies: Cookies, space: SpaceId) {
 }
 
 export async function isUnlocked(event: RequestEvent, space: SpaceId) {
+	// Espace en accès libre (Pro) : pas de session à vérifier.
+	if (!isProtected(space)) return true;
 	const cached = event.locals.unlocked[space];
 	if (cached !== undefined) return cached;
 
