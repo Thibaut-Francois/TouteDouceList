@@ -39,6 +39,9 @@
 			{#if task.dueDate}
 				<span class:late>{formatDue(task.dueDate, today)}</span>
 			{/if}
+			{#if task.recurrenceId}
+				<span title="Récurrente" aria-label="Récurrente">↻</span>
+			{/if}
 			{#if task.notes}
 				<span title="Notes" aria-label="Contient des notes">≡</span>
 			{/if}

@@ -11,6 +11,7 @@
 	}: { task: ViewTask; onsave: (patch: TaskPatch) => void; onclose: () => void } = $props();
 
 	// Le formulaire part d'une copie : la tâche affichée ne change qu'à l'enregistrement.
+	const uid = $props.id();
 	const initial = untrack(() => ({ ...task }));
 	let title = $state(initial.title);
 	let notes = $state(initial.notes);
@@ -38,37 +39,37 @@
 	<form onsubmit={submit}>
 		<h2 id="editor-title">Modifier la tâche</h2>
 
-		<label>
-			<span>Titre</span>
-			<input class="field" bind:value={title} required maxlength="500" />
-		</label>
+		<div class="group">
+			<label for="{uid}-title">Titre</label>
+			<input id="{uid}-title" class="field" bind:value={title} required maxlength="500" />
+		</div>
 
-		<label>
-			<span>Notes</span>
-			<textarea class="field" bind:value={notes} rows="4" maxlength="10000"></textarea>
-		</label>
+		<div class="group">
+			<label for="{uid}-notes">Notes</label>
+			<textarea id="{uid}-notes" class="field" bind:value={notes} rows="4" maxlength="10000"></textarea>
+		</div>
 
 		<div class="row">
-			<label>
-				<span>Priorité</span>
-				<select class="field" bind:value={priority}>
+			<div class="group">
+				<label for="{uid}-priority">Priorité</label>
+				<select id="{uid}-priority" class="field" bind:value={priority}>
 					{#each PRIORITIES as p (p)}
 						<option value={p}>{p} · {PRIORITY_LABELS[p]}</option>
 					{/each}
 				</select>
-			</label>
+			</div>
 
-			<label>
-				<span>Échéance</span>
+			<div class="group">
+				<label for="{uid}-due">Échéance</label>
 				<span class="due">
-					<input class="field" type="date" bind:value={dueDate} />
+					<input id="{uid}-due" class="field" type="date" bind:value={dueDate} />
 					{#if dueDate}
 						<button class="btn ghost" type="button" aria-label="Retirer l'échéance" onclick={() => (dueDate = '')}>
 							✕
 						</button>
 					{/if}
 				</span>
-			</label>
+			</div>
 		</div>
 
 		<div class="actions">
@@ -103,12 +104,12 @@
 		font-size: 1.15rem;
 	}
 
-	label {
+	.group {
 		display: grid;
 		gap: 6px;
 	}
 
-	label > span:first-child {
+	.group > label {
 		color: var(--text-muted);
 		font-size: 0.85rem;
 	}

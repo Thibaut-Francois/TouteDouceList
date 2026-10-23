@@ -45,6 +45,19 @@ const DAY_MONTH_YEAR = new Intl.DateTimeFormat('fr-FR', {
 	year: 'numeric'
 });
 
+const FULL = new Intl.DateTimeFormat('fr-FR', {
+	timeZone: 'UTC',
+	weekday: 'short',
+	day: 'numeric',
+	month: 'short',
+	year: 'numeric'
+});
+
+/** « mar. 27 oct. 2026 » */
+export function formatFull(date: string) {
+	return FULL.format(toUtc(date));
+}
+
 export function formatDue(date: string, today: string) {
 	const diff = diffDays(date, today);
 	if (diff === 0) return "Aujourd'hui";

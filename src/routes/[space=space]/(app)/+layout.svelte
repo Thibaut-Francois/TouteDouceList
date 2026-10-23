@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { SPACES, SPACE_NAMES } from '$lib/spaces';
 
 	let { data, children } = $props();
@@ -26,6 +27,11 @@
 	<form method="POST" action="/{data.space}/unlock?/lock">
 		<button class="btn ghost" type="submit">Verrouiller</button>
 	</form>
+	<nav class="tabs" aria-label="Sections">
+		{#each [{ href: `/${data.space}`, label: 'Tâches' }, { href: `/${data.space}/recurrences`, label: 'Récurrences' }] as tab (tab.href)}
+			<a href={tab.href} aria-current={page.url.pathname === tab.href ? 'page' : undefined}>{tab.label}</a>
+		{/each}
+	</nav>
 </header>
 
 <main class="container">
@@ -38,13 +44,37 @@
 		top: 0;
 		z-index: 10;
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--gap);
+		gap: 8px var(--gap);
 		max-width: 720px;
 		margin: 0 auto;
-		padding: 8px 16px;
+		padding: 8px 16px 0;
 		background: var(--bg);
+	}
+
+	.tabs {
+		display: flex;
+		gap: 4px;
+		width: 100%;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.tabs a {
+		display: grid;
+		place-items: center;
+		min-height: var(--tap);
+		padding: 0 12px;
+		border-bottom: 2px solid transparent;
+		color: var(--text-muted);
+		text-decoration: none;
+		font-weight: 600;
+	}
+
+	.tabs a[aria-current='page'] {
+		border-bottom-color: var(--accent);
+		color: var(--text);
 	}
 
 	.switcher {
