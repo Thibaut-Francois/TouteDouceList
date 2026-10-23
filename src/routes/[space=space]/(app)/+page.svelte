@@ -11,5 +11,5 @@
 
 <!-- Une bascule d'espace recrée la liste et son état local. -->
 {#key data.space}
-	<SpaceTasks space={data.space} tasks={data.tasks} />
+	<SpaceTasks space={data.space} tasks={data.tasks} initialView={data.view} />
 {/key}

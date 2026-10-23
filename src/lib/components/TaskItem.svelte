@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { formatDue } from '$lib/dates';
-	import { PRIORITY_LABELS } from '$lib/priorities';
 	import type { ViewTask } from '$lib/tasks.svelte';
+	import PriorityBadge from './PriorityBadge.svelte';
 
 	let {
 		task,
@@ -34,21 +34,15 @@
 
 	<button class="body" type="button" onclick={onedit}>
 		<span class="title">{task.title}</span>
-		{#if task.priority !== 3 || task.dueDate || task.notes}
-			<span class="meta">
-				{#if task.priority !== 3}
-					<span class="priority" title="Priorité {PRIORITY_LABELS[task.priority]}">
-						!{task.priority}
-					</span>
-				{/if}
-				{#if task.dueDate}
-					<span class:late>{formatDue(task.dueDate, today)}</span>
-				{/if}
-				{#if task.notes}
-					<span title="Notes" aria-label="Contient des notes">≡</span>
-				{/if}
-			</span>
-		{/if}
+		<span class="meta">
+			<PriorityBadge priority={task.priority} />
+			{#if task.dueDate}
+				<span class:late>{formatDue(task.dueDate, today)}</span>
+			{/if}
+			{#if task.notes}
+				<span title="Notes" aria-label="Contient des notes">≡</span>
+			{/if}
+		</span>
 	</button>
 
 	{#if failed}
@@ -117,13 +111,10 @@
 
 	.meta {
 		display: flex;
+		align-items: center;
 		gap: 10px;
 		color: var(--text-muted);
 		font-size: 0.85rem;
-	}
-
-	.priority {
-		font-weight: 700;
 	}
 
 	.late {

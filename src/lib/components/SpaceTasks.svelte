@@ -2,15 +2,18 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { todayInParis } from '$lib/dates';
+	import { applyView, DEFAULT_VIEW, type View } from '$lib/filters';
+	import { saveView } from '$lib/view-cookie';
 	import type { Task } from '$lib/server/repo/tasks';
 	import type { SpaceId } from '$lib/spaces';
 	import { TaskStore, type ViewTask } from '$lib/tasks.svelte';
+	import FilterBar from './FilterBar.svelte';
 	import QuickAdd from './QuickAdd.svelte';
 	import TaskEditor from './TaskEditor.svelte';
 	import TaskItem from './TaskItem.svelte';
 	import Toast, { type ToastMessage } from './Toast.svelte';
 
-	let { space, tasks }: { space: SpaceId; tasks: Task[] } = $props();
+	let { space, tasks, initialView }: { space: SpaceId; tasks: Task[]; initialView: View } = $props();
 
 	// Composant recréé à chaque changement d'espace ({#key} dans la page) : l'espace initial suffit.
 	const store = untrack(() => new TaskStore(space, tasks));
@@ -21,6 +24,10 @@
 		store.setServer(tasks);
 		today = todayInParis();
 	});
+
+	let view = $state(untrack(() => initialView));
+	$effect(() => saveView(space, view));
+	const visible = $derived(applyView(store.open, view, today));
 
 	let toast = $state<ToastMessage | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -65,11 +72,20 @@
 
 <QuickAdd bind:this={quickAdd} onadd={(task) => store.add(task)} />
 
+<FilterBar bind:view />
+
 {#if store.open.length === 0}
 	<p class="empty muted">Rien à faire pour l'instant.</p>
+{:else if visible.length === 0}
+	<div class="empty">
+		<p class="muted">Aucune tâche ne correspond.</p>
+		<button class="btn" type="button" onclick={() => (view = { ...DEFAULT_VIEW, sort: view.sort })}>
+			Tout afficher
+		</button>
+	</div>
 {:else}
 	<ul class="tasks">
-		{#each store.open as task (task.id)}
+		{#each visible as task (task.id)}
 			<TaskItem
 				{task}
 				{today}
