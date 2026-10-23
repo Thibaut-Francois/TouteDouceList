@@ -8,3 +8,11 @@ export const PRIORITY_LABELS: Record<number, string> = {
 	3: 'Faible',
 	4: 'Minime'
 };
+
+/** Couleur du chiffre du badge ; contraste AA vérifié sur les fonds sombres (tests/priorities.test.ts). */
+export const PRIORITY_COLORS: Record<number, string> = {
+	1: '#ff8593',
+	2: '#ffb86b',
+	3: '#8ab4f8',
+	4: '#a7adb7'
+};
