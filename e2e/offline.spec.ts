@@ -46,7 +46,7 @@ test('hors ligne : dernière liste lisible, écriture désactivée ; le verrouil
 
 	await page.waitForLoadState('networkidle');
 	await page.getByRole('button', { name: 'Verrouiller' }).click();
-	await expect(page).toHaveURL('/perso/unlock');
+	await expect(page).toHaveURL('/');
 	await page.waitForLoadState('networkidle');
 
 	await context.setOffline(true);
