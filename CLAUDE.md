@@ -30,8 +30,10 @@ Variables d'environnement : voir `.env.example` (base de données uniquement ; a
 Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (création de liens symboliques, `EPERM`), sauf si le mode développeur de Windows est activé. Le build client dans `.svelte-kit/output/client` est quand même produit, et le build Vercel (sous Linux) n'est pas concerné. Avec `E2E_PREVIEW=1`, `svelte.config.js` utilise l'adapter Node : le build réussit et `vite preview` sert le build de production (tests PWA, Lighthouse).
 
 ## Déploiement
-- Vercel (Hobby) relié au dépôt GitHub : chaque push sur `main` déploie. Région des fonctions `cdg1`. Variables Vercel : `DATABASE_URL` (`libsql://…turso.io`) et `DATABASE_AUTH_TOKEN`.
-- Turso : base en Europe. Après une nouvelle migration, lancer `npm run setup:prod`.
+- Production : **https://toute-douce-list.vercel.app**. Les adresses propres à chaque déploiement (`toute-douce-list-<hash>-….vercel.app`) sont protégées par la connexion Vercel : vérifier sur l'adresse de production.
+- Vercel (Hobby) relié au dépôt GitHub : chaque push sur `main` déploie. Région des fonctions `cdg1`. Variables Vercel : `DATABASE_URL` (`libsql://…turso.io`) et `DATABASE_AUTH_TOKEN` ; après une modification, redéployer pour qu'elles s'appliquent.
+- Turso : base `toutedoucelist` en `aws-eu-west-1`, gérée depuis app.turso.tech (pas de CLI Turso sous Windows). Après une nouvelle migration, lancer `npm run setup:prod` **avant** de pousser le code qui en dépend (sinon erreur 500 sur les pages qui lisent les tables).
+- Les commandes que l'utilisateur lance avec `!` passent par Bash : chemins avec des `/` (`cd /c/Users/thibf/Documents/TouteDouceList && …`).
 - Lighthouse : lancer la CLI avec Node et `CHROME_PATH` pointant vers le Chromium de Playwright, avec `--chrome-flags=--headless=new --no-sandbox`. Via `npx`, sous Windows, Chrome ne démarre pas. Page connectée : `--extra-headers=<fichier JSON {"Cookie":"tdl_perso=…"}>`.
 
 ## PWA et hors ligne
