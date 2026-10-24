@@ -91,4 +91,5 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 ### Interface
 - `src/lib/tasks.svelte.ts` (`TaskStore`) : mises à jour optimistes. L'affichage combine la liste du serveur, les créations non confirmées et les modifications en cours ; les opérations d'une même tâche partent dans l'ordre. Une création échouée reste affichée avec « Réessayer » ; une modification échouée est annulée et signalée par un toast.
 - `src/lib/api.ts` : réessais (500 ms, 1,5 s, 4 s) sur erreur réseau ou 5xx, jamais sur 4xx. Un 401 renvoie vers le déverrouillage.
+- Déverrouillage de Perso sur mobile (≤ 640 px) : pavé numérique dans la page (le champ passe en `inputmode="none"`, car iOS ignore `inputmode` sur un champ mot de passe). Envoi automatique au 4ᵉ chiffre, après `tick()` pour que le champ contienne déjà le chiffre.
 - Sur mobile (≤ 640 px), le champ de création est toujours `position: fixed`, ouvert comme fermé, pour ne jamais décaler la liste sous le doigt. Fermé, il reste focusable (pas de `display: none`) pour que le bouton flottant ouvre le clavier dans le même geste.

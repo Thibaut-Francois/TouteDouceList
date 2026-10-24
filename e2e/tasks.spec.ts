@@ -221,3 +221,21 @@ test('au lancement : choix de l’espace ; Pro s’ouvre directement, Perso dema
 	await page.goto('/pro/unlock');
 	await expect(page).toHaveURL('/pro');
 });
+
+test('sur téléphone, le code Perso se tape sur le pavé de la page', async ({ page, isMobile }) => {
+	test.skip(!isMobile, 'Pavé affiché sur téléphone seulement');
+	await page.goto('/perso/unlock');
+	await page.waitForLoadState('networkidle');
+
+	const keypad = page.getByRole('group', { name: 'Pavé numérique' });
+	await expect(page.getByLabel('Code')).toHaveAttribute('inputmode', 'none');
+	const [first, ...rest] = todayCode();
+	await keypad.getByRole('button', { name: first, exact: true }).tap();
+	await keypad.getByRole('button', { name: '9', exact: true }).tap();
+	await keypad.getByRole('button', { name: 'Effacer' }).tap();
+	await expect(page.getByLabel('Code')).toHaveValue(first);
+
+	// Validation automatique au 4e chiffre.
+	for (const digit of rest) await keypad.getByRole('button', { name: digit, exact: true }).tap();
+	await expect(page).toHaveURL('/perso');
+});
