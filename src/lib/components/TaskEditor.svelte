@@ -20,7 +20,11 @@
 	let dueDate = $state(initial.dueDate ?? '');
 
 	let dialog: HTMLDialogElement;
-	onMount(() => dialog.showModal());
+	onMount(() => {
+		dialog.showModal();
+		// Sur écran tactile, showModal donnerait le focus au titre et ouvrirait le clavier.
+		if (matchMedia('(pointer: coarse)').matches) dialog.focus();
+	});
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -36,7 +40,14 @@
 	}
 </script>
 
-<dialog class="modal" bind:this={dialog} use:lightDismiss {onclose} aria-labelledby="editor-title">
+<dialog
+	class="modal"
+	bind:this={dialog}
+	use:lightDismiss
+	{onclose}
+	aria-labelledby="editor-title"
+	tabindex="-1"
+>
 	<form class="modal-body" onsubmit={submit}>
 		<h2 id="editor-title">Modifier la tâche</h2>
 

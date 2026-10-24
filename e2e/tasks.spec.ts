@@ -79,6 +79,9 @@ test('édition du titre, des notes, de la priorité et de l’échéance', async
 
 	await page.getByRole('button', { name: title }).click();
 	const dialog = page.getByRole('dialog', { name: 'Modifier la tâche' });
+	// Sur téléphone, aucun champ n'a le focus à l'ouverture : le clavier reste fermé.
+	if (isMobile) await expect(dialog).toBeFocused();
+	else await expect(dialog.getByLabel('Titre')).toBeFocused();
 	await dialog.getByLabel('Titre').fill(`${title} relu`);
 	await dialog.getByLabel('Notes').fill('Penser aux annexes');
 	await dialog.getByLabel('Priorité').selectOption('2');
