@@ -61,6 +61,7 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 
 ### Conventions de données
 - Dates de tâche : texte `YYYY-MM-DD`, en dates flottantes (sans heure ni fuseau). « Aujourd'hui » se calcule en Europe/Paris.
+- Affichage d'une date de tâche (ou d'étape) : **toujours** `formatTaskDate` (`src/lib/dates.ts`). « hier », « aujourd'hui », « demain », « après-demain » seulement si la date est dans la semaine en cours (lundi → dimanche), sinon `jj/mm/aaaa` ; `{ capitalize: true }` pour un libellé seul. La date complète va dans `title` (`formatDateTitle`). Côté interface, « aujourd'hui » vient de `today.value` (`src/lib/today.svelte.ts`), recalculé au retour au premier plan (app restée ouverte après minuit). `formatInstant` reste réservé aux horodatages (créée le, terminée le).
 - Horodatages (`created_at`, `completed_at`, etc.) : millisecondes UTC, en entiers.
 - Les ids de tâche sont des UUID générés côté client : la création est idempotente (`ON CONFLICT DO NOTHING`), et la réutilisation d'un id d'un autre espace renvoie 409.
 - Priorités : 1 Critique · 2 Élevée · 3 Faible (par défaut) · 4 Minime.
