@@ -6,6 +6,13 @@ import { getRecurrence } from '$lib/server/repo/recurrences';
 import { getTask } from '$lib/server/repo/tasks';
 import { PROFILE_SPACE, scopeOf, type ProfileId } from '$lib/spaces';
 import * as archive from '../src/routes/api/[profile=profile]/archive/+server';
+import * as projectById from '../src/routes/api/[profile=profile]/projects/[id]/+server';
+import * as stageById from '../src/routes/api/[profile=profile]/projects/[id]/stages/[stageId]/+server';
+import * as stageOrder from '../src/routes/api/[profile=profile]/projects/[id]/stages/order/+server';
+import * as stageList from '../src/routes/api/[profile=profile]/projects/[id]/stages/+server';
+import * as projectTaskById from '../src/routes/api/[profile=profile]/projects/[id]/tasks/[taskId]/+server';
+import * as projectTaskList from '../src/routes/api/[profile=profile]/projects/[id]/tasks/+server';
+import * as projectList from '../src/routes/api/[profile=profile]/projects/+server';
 import * as recurrenceById from '../src/routes/api/[profile=profile]/recurrences/[id]/+server';
 import * as recurrencePreview from '../src/routes/api/[profile=profile]/recurrences/preview/+server';
 import * as recurrenceList from '../src/routes/api/[profile=profile]/recurrences/+server';
@@ -32,16 +39,26 @@ afterEach(() => cleanup());
 
 type Handler = (event: never) => Response | Promise<Response>;
 
-function call(
-	handler: Handler,
-	{ as, profile, id, method, body }: { as: Caller; profile: ProfileId; id?: string; method?: string; body?: unknown }
-) {
+type CallOptions = {
+	as: Caller;
+	profile: ProfileId;
+	id?: string;
+	method?: string;
+	body?: unknown;
+	/** Autres paramètres d'adresse (stageId, taskId). */
+	params?: Record<string, string>;
+	/** Paramètres de requête, sans le « ? ». */
+	query?: string;
+};
+
+function call(handler: Handler, { as, profile, id, method, body, params = {}, query = '' }: CallOptions) {
 	const event = fakeEvent({
 		db,
-		params: id ? { profile, id } : { profile },
+		params: { profile, ...(id ? { id } : {}), ...params },
 		cookies: as === 'perso' ? { [cookieName('perso')]: persoToken } : {},
 		method,
-		body
+		body,
+		url: `http://localhost/?${query}`
 	});
 	return handler(event as never);
 }
@@ -200,5 +217,125 @@ describe('propriétaire', () => {
 			expect(await statusOf(call(taskList.POST, { as: 'perso', profile: 'perso', method: 'POST', body }))).toBe(201);
 		}
 		expect(await (await call(taskList.GET, { as: 'perso', profile: 'perso' })).json()).toHaveLength(1);
+	});
+});
+
+// --- Chantiers : communs aux profils d'un espace, jamais visibles depuis l'autre espace. ---
+
+async function createProjectIn(profile: ProfileId) {
+	const as = writer(profile);
+	const project = await (
+		await call(projectList.POST, { as, profile, method: 'POST', body: { name: `Chantier ${profile}` } })
+	).json();
+	const stage = await (
+		await call(stageList.POST, {
+			as,
+			profile,
+			id: project.id,
+			method: 'POST',
+			body: { name: 'Étape', startDate: '2026-11-02', endDate: '2026-11-06' }
+		})
+	).json();
+	const taskId = crypto.randomUUID();
+	const created = await call(projectTaskList.POST, {
+		as,
+		profile,
+		id: project.id,
+		method: 'POST',
+		body: { id: taskId, title: 'Secrète', stageId: stage.id, profileId: profile }
+	});
+	expect(created.status).toBe(201);
+	return { projectId: project.id as string, stageId: stage.id as string, taskId };
+}
+
+/** Tous les endpoints de chantier, pour un chantier donné. */
+function projectAttempts(opts: { as: Caller; profile: ProfileId }, { projectId, stageId, taskId }: Awaited<ReturnType<typeof createProjectIn>>) {
+	const on = { ...opts, id: projectId };
+	return [
+		[projectById.GET, on],
+		[projectById.PATCH, { ...on, method: 'PATCH', body: { name: 'piraté', status: 'done' } }],
+		[stageList.POST, { ...on, method: 'POST', body: { name: 'x', startDate: '2026-11-01', endDate: '2026-11-01' } }],
+		[stageOrder.PUT, { ...on, method: 'PUT', body: { ids: [stageId] } }],
+		[stageById.PATCH, { ...on, params: { stageId }, method: 'PATCH', body: { name: 'piraté' } }],
+		[stageById.DELETE, { ...on, params: { stageId }, method: 'DELETE', query: 'tasks=delete' }],
+		[
+			projectTaskList.POST,
+			{ ...on, method: 'POST', body: { id: crypto.randomUUID(), title: 'x', stageId, profileId: opts.profile } }
+		],
+		[projectTaskById.PATCH, { ...on, params: { taskId }, method: 'PATCH', body: { status: 'done' } }],
+		[projectTaskById.DELETE, { ...on, params: { taskId }, method: 'DELETE' }],
+		[projectById.DELETE, { ...on, method: 'DELETE' }]
+	] as [Handler, CallOptions][];
+}
+
+describe('chantiers', () => {
+	it('Perso : tout est refusé sans session (401), et rien ne change', async () => {
+		const perso = await createProjectIn('perso');
+		const visitor = { as: 'visitor', profile: 'perso' } as const;
+		expect(await statusOf(call(projectList.GET, visitor))).toBe(401);
+		expect(await statusOf(call(projectList.POST, { ...visitor, method: 'POST', body: { name: 'x' } }))).toBe(401);
+		for (const [handler, args] of projectAttempts(visitor, perso)) {
+			expect(await statusOf(call(handler, args))).toBe(401);
+		}
+		const project = await (await call(projectById.GET, { as: 'perso', profile: 'perso', id: perso.projectId })).json();
+		expect(project).toMatchObject({ name: 'Chantier perso', status: 'open' });
+		expect(project.stages[0].tasks).toMatchObject([{ id: perso.taskId, status: 'open' }]);
+	});
+
+	describe.each([
+		{ owner: 'perso', via: 'thibaut', as: 'visitor' },
+		{ owner: 'perso', via: 'philippe', as: 'visitor' },
+		{ owner: 'thibaut', via: 'perso', as: 'perso' }
+	] satisfies { owner: ProfileId; via: ProfileId; as: Caller }[])(
+		'un chantier $owner, via l’API $via',
+		({ owner, via, as }) => {
+			it('est introuvable partout (404), absent des listes, et intact', async () => {
+				const target = await createProjectIn(owner);
+				for (const [handler, args] of projectAttempts({ as, profile: via }, target)) {
+					expect(await statusOf(call(handler, args))).toBe(404);
+				}
+				expect(await (await call(projectList.GET, { as, profile: via })).json()).toEqual([]);
+				const project = await (
+					await call(projectById.GET, { as: writer(owner), profile: owner, id: target.projectId })
+				).json();
+				expect(project).toMatchObject({ name: `Chantier ${owner}`, status: 'open' });
+				expect(project.stages).toHaveLength(1);
+				expect(project.stages[0].tasks).toMatchObject([{ id: target.taskId, title: 'Secrète', status: 'open' }]);
+			});
+		}
+	);
+
+	it('Thibaut et Philippe partagent les chantiers de Pro', async () => {
+		const { projectId } = await createProjectIn('thibaut');
+		const res = await call(projectById.GET, { as: 'visitor', profile: 'philippe', id: projectId });
+		expect(res.status).toBe(200);
+	});
+
+	it('une tâche ne peut aller ni dans l’étape d’un autre espace, ni à un profil d’un autre espace', async () => {
+		const pro = await createProjectIn('thibaut');
+		const perso = await createProjectIn('perso');
+		const opts = { as: 'visitor', profile: 'thibaut', id: pro.projectId, params: { taskId: pro.taskId } } as const;
+		expect(
+			await statusOf(call(projectTaskById.PATCH, { ...opts, method: 'PATCH', body: { stageId: perso.stageId } }))
+		).toBe(404);
+		expect(
+			await statusOf(call(projectTaskById.PATCH, { ...opts, method: 'PATCH', body: { profileId: 'perso' } }))
+		).toBe(400);
+		const persoOpts = { as: 'perso', profile: 'perso', id: perso.projectId } as const;
+		expect(
+			await statusOf(
+				call(projectTaskList.POST, {
+					...persoOpts,
+					method: 'POST',
+					body: { id: crypto.randomUUID(), title: 'x', stageId: perso.stageId, profileId: 'philippe' }
+				})
+			)
+		).toBe(400);
+	});
+
+	it('une tâche de chantier Pro reste introuvable via l’API des tâches de Perso', async () => {
+		const pro = await createProjectIn('thibaut');
+		expect(await statusOf(call(taskById.GET, { as: 'perso', profile: 'perso', id: pro.taskId }))).toBe(404);
+		expect(await getTask(db, scopeOf('thibaut'), pro.taskId)).toMatchObject({ stageId: pro.stageId });
 	});
 });

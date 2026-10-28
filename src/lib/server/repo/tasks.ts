@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, getTableColumns, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { Scope } from '$lib/spaces';
 import { searchText, searchWords } from '$lib/text';
 import type { Db } from '../db/client';
@@ -9,6 +9,7 @@ import { tasks } from '../db/schema';
 
 // La colonne search ne sert qu'aux requêtes : elle n'est jamais renvoyée au client.
 const { search: _search, ...columns } = getTableColumns(tasks);
+export { columns as taskColumns };
 
 export type Task = Omit<typeof tasks.$inferSelect, 'search'>;
 export type NewTaskInput = Pick<Task, 'id' | 'title' | 'notes' | 'priority' | 'dueDate'>;
@@ -50,25 +51,36 @@ export async function createTask(db: Db, scope: Scope, input: NewTaskInput, now 
 	return getTask(db, scope, input.id);
 }
 
-export async function updateTask(
+export function updateTask(db: Db, scope: Scope, id: string, patch: TaskPatch, now = Date.now()) {
+	return updateTaskWhere(db, inScope(scope, id), patch, now);
+}
+
+/** Modification d'une tâche de chantier : on peut aussi changer d'étape ou de personne attribuée. */
+export type TaskWrite = TaskPatch & Partial<Pick<Task, 'stageId' | 'profileId'>>;
+
+/**
+ * Modifie la tâche que désigne where (qui doit garantir l'espace, et le profil ou le chantier).
+ * Tient à jour la date de fin et la colonne de recherche.
+ */
+export async function updateTaskWhere(
 	db: Db,
-	scope: Scope,
-	id: string,
-	patch: TaskPatch,
+	where: SQL | undefined,
+	patch: TaskWrite,
 	now = Date.now()
 ): Promise<Task | undefined> {
 	const values: Partial<typeof tasks.$inferInsert> = { ...patch };
 	if (patch.status === 'done') values.completedAt = now;
 	if (patch.status === 'open') values.completedAt = null;
-	if (Object.keys(values).length === 0) return getTask(db, scope, id);
+	const select = () => db.select(columns).from(tasks).where(where).limit(1);
+	if (Object.keys(values).length === 0) return (await select())[0];
 
 	if (patch.title !== undefined || patch.notes !== undefined) {
-		const current = await getTask(db, scope, id);
+		const [current] = await select();
 		if (!current) return undefined;
 		values.search = searchText(patch.title ?? current.title, patch.notes ?? current.notes);
 	}
 
-	const [task] = await db.update(tasks).set(values).where(inScope(scope, id)).returning(columns);
+	const [task] = await db.update(tasks).set(values).where(where).returning(columns);
 	return task;
 }
 

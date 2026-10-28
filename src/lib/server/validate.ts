@@ -1,7 +1,9 @@
 import { error } from '@sveltejs/kit';
 import { sanitizePreset } from '$lib/recurrence/presets';
+import { isProfileId } from '$lib/spaces';
+import type { ProjectInput, ProjectPatch, ProjectTaskInput, StageInput, StagePatch } from './repo/projects';
 import type { RecurrenceInput, RecurrencePatch } from './repo/recurrences';
-import type { ArchiveCursor, NewTaskInput, TaskPatch } from './repo/tasks';
+import type { ArchiveCursor, NewTaskInput, TaskPatch, TaskWrite } from './repo/tasks';
 
 type Body = Record<string, unknown>;
 
@@ -123,5 +125,86 @@ export function parseTaskPatch(body: Body): TaskPatch {
 	if (body.priority !== undefined) patch.priority = priority(body.priority);
 	if (body.dueDate !== undefined) patch.dueDate = dueDate(body.dueDate);
 	if (body.status !== undefined) patch.status = status(body.status);
+	return patch;
+}
+
+// --- Chantiers ---
+
+function requiredText(field: string, value: unknown, maxLength: number) {
+	if (typeof value !== 'string') invalid(field);
+	const trimmed = value.trim();
+	if (trimmed.length === 0 || trimmed.length > maxLength) invalid(field);
+	return trimmed;
+}
+
+function longText(field: string, value: unknown) {
+	if (typeof value !== 'string' || value.length > NOTES_MAX) invalid(field);
+	return value;
+}
+
+function date(field: string, value: unknown) {
+	if (typeof value !== 'string' || !isValidDate(value)) invalid(field);
+	return value;
+}
+
+function uuid(field: string, value: unknown) {
+	if (typeof value !== 'string' || !UUID_RE.test(value)) invalid(field);
+	return value.toLowerCase();
+}
+
+function profileId(value: unknown) {
+	if (!isProfileId(value)) invalid('profileId');
+	return value;
+}
+
+export function parseProjectInput(body: Body): ProjectInput {
+	return {
+		name: requiredText('name', body.name, TITLE_MAX),
+		description: body.description === undefined ? '' : longText('description', body.description)
+	};
+}
+
+export function parseProjectPatch(body: Body): ProjectPatch {
+	const patch: ProjectPatch = {};
+	if (body.name !== undefined) patch.name = requiredText('name', body.name, TITLE_MAX);
+	if (body.description !== undefined) patch.description = longText('description', body.description);
+	if (body.status !== undefined) patch.status = status(body.status);
+	return patch;
+}
+
+export function parseStageInput(body: Body): StageInput {
+	const input = {
+		name: requiredText('name', body.name, TITLE_MAX),
+		startDate: date('startDate', body.startDate),
+		endDate: date('endDate', body.endDate)
+	};
+	if (input.startDate > input.endDate) invalid('endDate');
+	return input;
+}
+
+/** Les dates sont comparées entre elles par l'accès aux données, une fois fusionnées avec l'étape. */
+export function parseStagePatch(body: Body): StagePatch {
+	const patch: StagePatch = {};
+	if (body.name !== undefined) patch.name = requiredText('name', body.name, TITLE_MAX);
+	if (body.startDate !== undefined) patch.startDate = date('startDate', body.startDate);
+	if (body.endDate !== undefined) patch.endDate = date('endDate', body.endDate);
+	return patch;
+}
+
+export const STAGES_MAX = 200;
+
+export function parseStageOrder(body: Body): string[] {
+	if (!Array.isArray(body.ids) || body.ids.length > STAGES_MAX) invalid('ids');
+	return body.ids.map((id) => uuid('ids', id));
+}
+
+export function parseProjectTask(body: Body): ProjectTaskInput {
+	return { ...parseNewTask(body), stageId: uuid('stageId', body.stageId), profileId: profileId(body.profileId) };
+}
+
+export function parseProjectTaskPatch(body: Body): TaskWrite {
+	const patch: TaskWrite = parseTaskPatch(body);
+	if (body.stageId !== undefined) patch.stageId = uuid('stageId', body.stageId);
+	if (body.profileId !== undefined) patch.profileId = profileId(body.profileId);
 	return patch;
 }
