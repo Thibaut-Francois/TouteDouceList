@@ -28,7 +28,8 @@
 		saving = true;
 		const ok = await onsave({ name: name.trim(), description });
 		saving = false;
-		if (ok) dialog.close();
+		// Après une création, la page a déjà changé : la fenêtre n'existe plus.
+		if (ok) dialog?.close();
 	}
 </script>
 

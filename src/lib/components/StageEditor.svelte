@@ -44,7 +44,7 @@
 		saving = true;
 		const ok = await action();
 		saving = false;
-		if (ok) dialog.close();
+		if (ok) dialog?.close();
 	}
 
 	function submit(event: SubmitEvent) {
