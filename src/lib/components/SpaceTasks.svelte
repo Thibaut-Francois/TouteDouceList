@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { applyView, DEFAULT_VIEW, type View } from '$lib/filters';
 	import { saveView } from '$lib/view-cookie';
-	import type { Task } from '$lib/server/repo/tasks';
+	import type { ListedTask } from '$lib/server/repo/tasks';
 	import type { Scope } from '$lib/spaces';
 	import { TaskStore, type ViewTask } from '$lib/tasks.svelte';
 	import { today } from '$lib/today.svelte';
@@ -13,7 +13,7 @@
 	import TaskItem from './TaskItem.svelte';
 	import Toast, { type ToastMessage } from './Toast.svelte';
 
-	let { scope, tasks, initialView }: { scope: Scope; tasks: Task[]; initialView: View } = $props();
+	let { scope, tasks, initialView }: { scope: Scope; tasks: ListedTask[]; initialView: View } = $props();
 
 	// Composant recréé à chaque changement de profil ({#key} dans la page) : le profil initial suffit.
 	const { profileId } = untrack(() => scope);

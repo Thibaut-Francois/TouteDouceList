@@ -5,7 +5,7 @@
 	import ArchiveDetail from '$lib/components/ArchiveDetail.svelte';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
 	import Toast, { type ToastMessage } from '$lib/components/Toast.svelte';
-	import { formatDateTitle, formatTaskDate } from '$lib/dates';
+	import { formatDateTitle, formatInstant, formatTaskDate } from '$lib/dates';
 	import { QUERY_MAX } from '$lib/filters';
 	import { network, OFFLINE_MESSAGE } from '$lib/network.svelte';
 	import type { Task } from '$lib/server/repo/tasks';
@@ -96,6 +96,22 @@
 
 <h1>Archive</h1>
 
+{#if data.doneProjects.length}
+	<details class="projects">
+		<summary>Chantiers terminés ({data.doneProjects.length})</summary>
+		<ul>
+			{#each data.doneProjects as project (project.id)}
+				<li>
+					<a href="/{data.profile}/chantiers/{project.id}">{project.name}</a>
+					{#if project.completedAt}
+						<span class="muted">terminé le {formatInstant(project.completedAt)}</span>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</details>
+{/if}
+
 <input
 	class="field search"
 	type="search"
@@ -126,6 +142,7 @@
 										>Échéance {formatTaskDate(task.dueDate, today.value)}</span
 									>{/if}
 								{#if task.recurrenceId}<span title="Récurrente" aria-label="Récurrente">↻</span>{/if}
+								{#if task.projectName}<span class="project">{task.projectName} › {task.stageName}</span>{/if}
 							</span>
 							{#if task.notes}<span class="notes">{task.notes}</span>{/if}
 						</button>
@@ -271,5 +288,40 @@
 	.more {
 		display: block;
 		margin: 16px auto 0;
+	}
+
+	.project {
+		padding: 0 8px;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+	}
+
+	.projects {
+		margin: 0 0 12px;
+		padding: 10px 12px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--surface);
+	}
+
+	.projects summary {
+		min-height: 28px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.projects ul {
+		display: grid;
+		gap: 6px;
+		margin: 8px 0 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.projects li {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 10px;
+		font-size: 0.95rem;
 	}
 </style>

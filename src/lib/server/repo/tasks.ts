@@ -2,7 +2,7 @@ import { and, asc, desc, eq, getTableColumns, lt, or, sql, type SQL } from 'driz
 import type { Scope } from '$lib/spaces';
 import { searchText, searchWords } from '$lib/text';
 import type { Db } from '../db/client';
-import { tasks } from '../db/schema';
+import { projects, stages, tasks } from '../db/schema';
 
 // Toutes les fonctions filtrent sur space_id et profile_id : une tâche d'un autre espace,
 // ou d'un autre profil du même espace, est introuvable.
@@ -19,10 +19,22 @@ const ofScope = ({ spaceId, profileId }: Scope) =>
 	and(eq(tasks.spaceId, spaceId), eq(tasks.profileId, profileId));
 const inScope = (scope: Scope, id: string) => and(ofScope(scope), eq(tasks.id, id));
 
-export function listOpenTasks(db: Db, scope: Scope): Promise<Task[]> {
-	return db
-		.select(columns)
+/** Tâche de chantier : son chantier et son étape, pour le badge « Chantier › Étape » des listes. */
+export type TaskContext = { projectId?: string | null; projectName?: string | null; stageName?: string | null };
+export type ListedTask = Task & TaskContext;
+
+const listedColumns = { ...columns, projectId: projects.id, projectName: projects.name, stageName: stages.name };
+
+/** Requête de liste : les tâches, avec le chantier et l'étape des tâches de chantier. */
+const listed = (db: Db) =>
+	db
+		.select(listedColumns)
 		.from(tasks)
+		.leftJoin(stages, eq(stages.id, tasks.stageId))
+		.leftJoin(projects, eq(projects.id, stages.projectId));
+
+export function listOpenTasks(db: Db, scope: Scope): Promise<ListedTask[]> {
+	return listed(db)
 		.where(and(ofScope(scope), eq(tasks.status, 'open')))
 		.orderBy(asc(tasks.createdAt));
 }
@@ -103,7 +115,7 @@ export async function listArchive(
 	db: Db,
 	scope: Scope,
 	{ query = '', cursor, limit = ARCHIVE_PAGE_SIZE }: { query?: string; cursor?: ArchiveCursor; limit?: number } = {}
-): Promise<{ tasks: Task[]; next: ArchiveCursor | null }> {
+): Promise<{ tasks: ListedTask[]; next: ArchiveCursor | null }> {
 	const words = searchWords(query).map((w) => sql`${tasks.search} LIKE ${`%${escapeLike(w)}%`} ESCAPE '\\'`);
 	const after = cursor
 		? or(
@@ -112,9 +124,7 @@ export async function listArchive(
 			)
 		: undefined;
 
-	const rows = await db
-		.select(columns)
-		.from(tasks)
+	const rows = await listed(db)
 		.where(and(ofScope(scope), eq(tasks.status, 'done'), after, ...words))
 		.orderBy(desc(tasks.completedAt), desc(tasks.id))
 		.limit(limit + 1);

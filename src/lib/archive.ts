@@ -1,13 +1,13 @@
-import type { ArchiveCursor, Task } from '$lib/server/repo/tasks';
+import type { ArchiveCursor, ListedTask } from '$lib/server/repo/tasks';
 import { formatTaskDate, todayInParis } from './dates';
 
-export type ArchivePage = { tasks: Task[]; next: ArchiveCursor | null };
+export type ArchivePage = { tasks: ListedTask[]; next: ArchiveCursor | null };
 
 export const cursorParam = (cursor: ArchiveCursor) => `${cursor.completedAt}:${cursor.id}`;
 
 /** Regroupe les tâches (déjà triées) par jour de complétion, à l'heure de Paris. */
-export function groupByDay(tasks: Task[], today: string) {
-	const groups: { day: string; label: string; tasks: Task[] }[] = [];
+export function groupByDay<T extends Pick<ListedTask, 'completedAt'>>(tasks: T[], today: string) {
+	const groups: { day: string; label: string; tasks: T[] }[] = [];
 	for (const task of tasks) {
 		const day = todayInParis(new Date(task.completedAt ?? 0));
 		const last = groups.at(-1);

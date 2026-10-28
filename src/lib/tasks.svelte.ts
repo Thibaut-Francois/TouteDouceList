@@ -1,12 +1,12 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type { Task, TaskPatch } from '$lib/server/repo/tasks';
+import type { ListedTask, Task, TaskPatch } from '$lib/server/repo/tasks';
 import type { Scope } from '$lib/spaces';
 import { ApiError, request } from './api';
 import { todayInParis } from './dates';
 import { network, OFFLINE_MESSAGE } from './network.svelte';
 import { compareDefault } from './sort';
 
-export type ViewTask = Task & { sync?: 'saving' | 'failed' };
+export type ViewTask = ListedTask & { sync?: 'saving' | 'failed' };
 export type NewTask = Pick<Task, 'title' | 'priority' | 'dueDate'>;
 
 /**
@@ -15,7 +15,7 @@ export type NewTask = Pick<Task, 'title' | 'priority' | 'dueDate'>;
  * Les opérations d'une même tâche sont envoyées dans l'ordre (file par id).
  */
 export class TaskStore {
-	#server = $state<Task[]>([]);
+	#server = $state<ListedTask[]>([]);
 	#creates = new SvelteMap<string, ViewTask>();
 	#patches = new SvelteMap<string, TaskPatch>();
 	#versions = new Map<string, number>();
@@ -26,7 +26,7 @@ export class TaskStore {
 
 	constructor(
 		readonly scope: Scope,
-		tasks: Task[]
+		tasks: ListedTask[]
 	) {
 		this.#server = tasks;
 	}
@@ -43,7 +43,7 @@ export class TaskStore {
 	);
 
 	/** Liste fraîche du serveur (rechargement) : les modifications en cours restent appliquées. */
-	setServer(tasks: Task[]) {
+	setServer(tasks: ListedTask[]) {
 		this.#server = tasks;
 		for (const task of tasks) this.#creates.delete(task.id);
 	}
@@ -126,10 +126,11 @@ export class TaskStore {
 		this.#queues.set(id, next);
 	}
 
+	/** La réponse d'une écriture n'a pas le chantier ni l'étape : on garde ceux de la liste. */
 	#upsertServer(task: Task) {
 		const index = this.#server.findIndex((t) => t.id === task.id);
 		if (index === -1) this.#server.push(task);
-		else this.#server[index] = task;
+		else this.#server[index] = { ...this.#server[index], ...task };
 	}
 
 	#isUnauthorized(e: unknown) {

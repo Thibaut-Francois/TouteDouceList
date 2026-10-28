@@ -229,3 +229,11 @@ describe('chantier', () => {
 		});
 	});
 });
+
+it('les listes du profil donnent le chantier et l’étape (badge « Chantier › Étape »)', async () => {
+	const placo = await addTask(stageIds[1], 'Poser placo', 'philippe');
+	const context = { projectId, projectName: 'Rénovation', stageName: 'Placo' };
+	expect(await listOpenTasks(db, PHILIPPE)).toMatchObject([{ id: placo.id, ...context }]);
+	await updateTask(db, PHILIPPE, placo.id, { status: 'done' });
+	expect((await listArchive(db, PHILIPPE)).tasks).toMatchObject([{ id: placo.id, ...context }]);
+});

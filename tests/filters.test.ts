@@ -11,9 +11,17 @@ const task = (
 		dueDate = null,
 		createdAt = 0,
 		recurrenceId = null,
+		stageId = null,
 		notes = ''
-	}: { priority?: number; dueDate?: string | null; createdAt?: number; recurrenceId?: string | null; notes?: string } = {}
-) => ({ title, notes, priority, dueDate, createdAt, recurrenceId });
+	}: {
+		priority?: number;
+		dueDate?: string | null;
+		createdAt?: number;
+		recurrenceId?: string | null;
+		stageId?: string | null;
+		notes?: string;
+	} = {}
+) => ({ title, notes, priority, dueDate, createdAt, recurrenceId, stageId });
 
 const tasks = [
 	task('Rapport annuel', { priority: 1, dueDate: '2026-10-20', createdAt: 1 }),
@@ -49,6 +57,16 @@ describe('filtres', () => {
 	it('type ponctuelle / récurrente', () => {
 		expect(titles({ kinds: ['recurring'] })).toEqual(['Arroser les plantes']);
 		expect(titles({ kinds: ['single'] })).not.toContain('Arroser les plantes');
+	});
+
+	it('type chantier : une tâche de chantier n’est ni ponctuelle ni récurrente', () => {
+		const mixed = [...tasks, task('Poser placo', { stageId: 's1', createdAt: 6 })];
+		const kinds = (k: View['kinds']) =>
+			applyView(mixed, { ...DEFAULT_VIEW, kinds: k }, today).map((t) => t.title);
+		expect(kinds(['project'])).toEqual(['Poser placo']);
+		expect(kinds(['single'])).not.toContain('Poser placo');
+		expect(kinds(['recurring'])).toEqual(['Arroser les plantes']);
+		expect(kinds(['single', 'project'])).toHaveLength(5);
 	});
 
 	it('recherche sans accents ni casse, dans le titre et les notes, tous les mots requis', () => {

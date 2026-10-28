@@ -5,7 +5,7 @@ import { compareDefault } from './sort';
 import { searchText, searchWords } from './text';
 
 export const DUE_FILTERS = ['overdue', 'today', 'week', 'none'] as const;
-export const KIND_FILTERS = ['single', 'recurring'] as const;
+export const KIND_FILTERS = ['single', 'recurring', 'project'] as const;
 export const SORT_KEYS = ['default', 'priority', 'due', 'created', 'alpha'] as const;
 
 export type DueFilter = (typeof DUE_FILTERS)[number];
@@ -21,7 +21,8 @@ export const DUE_LABELS: Record<DueFilter, string> = {
 
 export const KIND_LABELS: Record<KindFilter, string> = {
 	single: 'Ponctuelle',
-	recurring: 'Récurrente'
+	recurring: 'Récurrente',
+	project: 'Chantiers'
 };
 
 export const SORT_LABELS: Record<SortKey, string> = {
@@ -85,7 +86,16 @@ function matchesDue(dueDate: string | null, filter: DueFilter, today: string) {
 	}
 }
 
-type Filterable = Pick<Task, 'title' | 'notes' | 'priority' | 'dueDate' | 'createdAt' | 'recurrenceId'>;
+type Filterable = Pick<
+	Task,
+	'title' | 'notes' | 'priority' | 'dueDate' | 'createdAt' | 'recurrenceId' | 'stageId'
+>;
+
+/** Une tâche de chantier n'est ni ponctuelle ni récurrente. */
+function kindOf(task: Filterable): KindFilter {
+	if (task.stageId !== null) return 'project';
+	return task.recurrenceId === null ? 'single' : 'recurring';
+}
 
 const byDue = (a: Filterable, b: Filterable) => {
 	if (a.dueDate === b.dueDate) return 0;
@@ -119,8 +129,7 @@ export function applyView<T extends Filterable>(tasks: T[], view: View, today: s
 			if (view.priorities.length && !view.priorities.includes(task.priority)) return false;
 			if (view.due.length && !view.due.some((f) => matchesDue(task.dueDate, f, today))) return false;
 			if (view.kinds.length) {
-				const kind: KindFilter = task.recurrenceId === null ? 'single' : 'recurring';
-				if (!view.kinds.includes(kind)) return false;
+				if (!view.kinds.includes(kindOf(task))) return false;
 			}
 			if (words.length) {
 				const text = searchText(task.title, task.notes);

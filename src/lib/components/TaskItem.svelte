@@ -45,6 +45,11 @@
 			{#if task.recurrenceId}
 				<span title="Récurrente" aria-label="Récurrente">↻</span>
 			{/if}
+			{#if task.projectName}
+				<span class="project" title="Chantier « {task.projectName} », étape « {task.stageName} »">
+					{task.projectName} › {task.stageName}
+				</span>
+			{/if}
 			{#if task.notes}
 				<span title="Notes" aria-label="Contient des notes">≡</span>
 			{/if}
@@ -117,14 +122,25 @@
 
 	.meta {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 10px;
+		gap: 2px 10px;
 		color: var(--text-muted);
 		font-size: 0.85rem;
 	}
 
 	.late {
 		color: var(--danger);
+	}
+
+	.project {
+		max-width: 100%;
+		padding: 0 8px;
+		overflow: hidden;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.failed {
