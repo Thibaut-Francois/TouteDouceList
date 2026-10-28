@@ -10,6 +10,15 @@ export const spaces = sqliteTable('spaces', {
 	name: text('name').notNull()
 });
 
+// Profils d'un espace (src/lib/spaces.ts). Les lignes sont créées par le setup, pas par la migration.
+export const profiles = sqliteTable('profiles', {
+	id: text('id').primaryKey(),
+	spaceId: text('space_id')
+		.notNull()
+		.references(() => spaces.id, { onDelete: 'cascade' }),
+	name: text('name').notNull()
+});
+
 export const sessions = sqliteTable(
 	'sessions',
 	{
@@ -44,6 +53,8 @@ export const recurrences = sqliteTable(
 		spaceId: text('space_id')
 			.notNull()
 			.references(() => spaces.id, { onDelete: 'cascade' }),
+		// Facultatif en base (colonne ajoutée à une table existante), toujours rempli par l'app.
+		profileId: text('profile_id').references(() => profiles.id),
 		title: text('title').notNull(),
 		notes: text('notes').notNull().default(''),
 		priority: integer('priority').notNull().default(3),
@@ -56,6 +67,7 @@ export const recurrences = sqliteTable(
 	},
 	(t) => [
 		index('recurrences_space_idx').on(t.spaceId),
+		index('recurrences_profile_idx').on(t.profileId),
 		check('recurrences_priority_check', sql`${t.priority} BETWEEN 1 AND 4`)
 	]
 );
@@ -68,6 +80,8 @@ export const tasks = sqliteTable(
 		spaceId: text('space_id')
 			.notNull()
 			.references(() => spaces.id, { onDelete: 'cascade' }),
+		// Facultatif en base (colonne ajoutée à une table existante), toujours rempli par l'app.
+		profileId: text('profile_id').references(() => profiles.id),
 		title: text('title').notNull(),
 		notes: text('notes').notNull().default(''),
 		priority: integer('priority').notNull().default(3),
@@ -88,6 +102,8 @@ export const tasks = sqliteTable(
 		uniqueIndex('tasks_recurrence_occurrence_uq').on(t.recurrenceId, t.occurrenceDate),
 		index('tasks_space_status_due_idx').on(t.spaceId, t.status, t.dueDate),
 		index('tasks_space_completed_idx').on(t.spaceId, t.completedAt),
+		index('tasks_profile_status_due_idx').on(t.profileId, t.status, t.dueDate),
+		index('tasks_profile_completed_idx').on(t.profileId, t.completedAt),
 		check('tasks_priority_check', sql`${t.priority} BETWEEN 1 AND 4`),
 		check('tasks_status_check', sql`${t.status} IN ('open', 'done')`)
 	]

@@ -1,22 +1,23 @@
 import { isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
 import { join } from 'node:path';
 import { createDb, runMigrations, type Db } from '$lib/server/db/client';
-import { spaces } from '$lib/server/db/schema';
-import { SPACE_NAMES, SPACES } from '$lib/spaces';
+import { seedReferenceData } from '$lib/server/db/seed';
 import { TEST_DB_DIR } from './global-setup';
 
-/** Base SQLite fraîche (fichier supprimé par global-setup en fin de run), migrations appliquées. */
-export async function createTestDb() {
+/**
+ * Base SQLite fraîche (fichier supprimé par global-setup en fin de run), migrations appliquées
+ * (toutes, ou celles d'un autre dossier pour tester une migration).
+ */
+export async function createTestDb(migrationsFolder?: string) {
 	const file = join(TEST_DB_DIR, `${crypto.randomUUID()}.db`);
 	const db = createDb(`file:${file.replaceAll('\\', '/')}`);
-	await runMigrations(db);
+	await runMigrations(db, migrationsFolder);
 	return { db, cleanup: () => db.$client.close() };
 }
 
+/** Espaces et profils, comme après le setup. */
 export async function seedSpaces(db: Db) {
-	for (const space of SPACES) {
-		await db.insert(spaces).values({ id: space, name: SPACE_NAMES[space] });
-	}
+	await seedReferenceData(db);
 }
 
 type FakeEventOptions = {
