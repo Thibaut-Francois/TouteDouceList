@@ -48,11 +48,18 @@ async function networkFirst(request: Request) {
 		const cached =
 			(await cache.match(request)) ?? (await cache.match(request, { ignoreSearch: true }));
 		if (cached) return cached;
-		if (request.mode === 'navigate') {
-			return new Response(OFFLINE_PAGE, { headers: { 'content-type': 'text/html; charset=utf-8' } });
-		}
+		if (request.mode === 'navigate') return offlinePage();
 		throw error;
 	}
+}
+
+function offlinePage() {
+	return new Response(OFFLINE_PAGE, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+}
+
+/** Lancement de l'app : `/` redirige vers Pro, hors ligne aussi (sa copie prend le relais). */
+function startPage(request: Request) {
+	return fetch(request).catch(() => Response.redirect('/pro', 302));
 }
 
 sw.addEventListener('fetch', (event) => {
@@ -61,6 +68,10 @@ sw.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	if (url.origin !== sw.location.origin) return;
 
+	if (url.pathname === '/' && request.mode === 'navigate') {
+		event.respondWith(startPage(request));
+		return;
+	}
 	if (ASSETS.has(url.pathname)) {
 		event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
 		return;

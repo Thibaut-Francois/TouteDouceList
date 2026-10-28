@@ -49,6 +49,6 @@ export const actions: Actions = {
 		const token = event.cookies.get(cookieName(space));
 		if (token) await deleteSession(event.locals.db, token);
 		clearSessionCookie(event.cookies, space);
-		redirect(303, '/');
+		redirect(303, '/pro');
 	}
 };

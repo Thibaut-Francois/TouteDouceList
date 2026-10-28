@@ -88,7 +88,7 @@
 		<button class="btn primary" type="submit">Déverrouiller</button>
 	</form>
 
-	<a href="/">Changer d'espace</a>
+	<a href="/pro">Aller à Pro</a>
 </main>
 
 <style>

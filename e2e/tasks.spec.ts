@@ -201,16 +201,16 @@ test('un clic à côté ferme la fenêtre de modification (sans enregistrer) et 
 	await expect(filters).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('au lancement : choix de l’espace ; Pro s’ouvre directement, Perso demande le code du jour', async ({
+test('au lancement : Pro directement, sans lien vers Perso ; /perso demande le code du jour', async ({
 	page
 }) => {
 	await page.goto('/');
-	await page.getByRole('link', { name: 'Pro' }).click();
 	await expect(page).toHaveURL('/pro');
 	await expect(page.getByRole('button', { name: 'Verrouiller' })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: 'Perso' })).toHaveCount(0);
+	await expect(page.getByRole('navigation', { name: 'Espaces' })).toHaveCount(0);
 
-	await page.goto('/');
-	await page.getByRole('link', { name: 'Perso' }).click();
+	await page.goto('/perso');
 	await expect(page).toHaveURL('/perso/unlock');
 	await page.waitForLoadState('networkidle');
 	// Pas de mauvais code ici : les échecs depuis l'IP de test bloqueraient Perso pour
@@ -219,6 +219,8 @@ test('au lancement : choix de l’espace ; Pro s’ouvre directement, Perso dema
 	await page.getByRole('button', { name: 'Déverrouiller' }).click();
 	await expect(page).toHaveURL('/perso');
 	await expect(page.getByRole('button', { name: 'Verrouiller' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Perso' })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: 'Pro' })).toBeVisible();
 
 	// Pro n'a pas de page de déverrouillage.
 	await page.goto('/pro/unlock');

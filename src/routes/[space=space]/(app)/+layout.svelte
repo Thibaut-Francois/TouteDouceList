@@ -3,9 +3,12 @@
 	import { page } from '$app/state';
 	import { network } from '$lib/network.svelte';
 	import { forgetOfflinePages } from '$lib/offline';
-	import { SPACES, SPACE_NAMES } from '$lib/spaces';
+	import { isProtected, SPACES, SPACE_NAMES } from '$lib/spaces';
 
 	let { data, children } = $props();
+
+	// Perso n'apparaît nulle part : on n'y entre qu'en tapant son adresse.
+	const otherSpaces = $derived(SPACES.filter((s) => s !== data.space && !isProtected(s)));
 
 	const tabs = $derived([
 		{ href: `/${data.space}`, label: 'Tâches' },
@@ -34,12 +37,14 @@
 <svelte:window ononline={refresh} />
 
 <header class="topbar">
-	<!-- Pas de préchargement : il déclencherait la génération des récurrences de l'autre espace. -->
-	<nav class="switcher" aria-label="Espaces" data-sveltekit-preload-data="off">
-		{#each SPACES as s (s)}
-			<a href="/{s}" aria-current={s === data.space ? 'page' : undefined}>{SPACE_NAMES[s]}</a>
-		{/each}
-	</nav>
+	{#if otherSpaces.length > 0}
+		<!-- Pas de préchargement : il déclencherait la génération des récurrences de l'autre espace. -->
+		<nav class="switcher" aria-label="Espaces" data-sveltekit-preload-data="off">
+			{#each otherSpaces as s (s)}
+				<a href="/{s}">{SPACE_NAMES[s]}</a>
+			{/each}
+		</nav>
+	{/if}
 	{#if data.lockable}
 		<form method="POST" action="/{data.space}/unlock?/lock" onsubmit={lock}>
 			<button class="btn ghost" type="submit">Verrouiller</button>
@@ -128,10 +133,5 @@
 		color: var(--text-muted);
 		text-decoration: none;
 		font-weight: 600;
-	}
-
-	.switcher a[aria-current='page'] {
-		background: var(--surface-2);
-		color: var(--text);
 	}
 </style>

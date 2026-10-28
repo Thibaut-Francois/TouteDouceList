@@ -1,6 +1,6 @@
 # TouteDouceList
 
-To-do list personnelle (un seul utilisateur), installable en PWA, avec deux espaces étanches **Pro** et **Perso**, choisis à chaque lancement (écran `/`). **Pro est en accès libre** (choix assumé de l'utilisateur, en sachant que quiconque a l'adresse du site peut l'ouvrir) ; **Perso** se déverrouille avec le **code du jour** : mois puis jour, heure de Paris (23/10 → `1023`), vérifié côté serveur. Priorité absolue : ouvrir l'app, ajouter et cocher une tâche en quelques secondes.
+To-do list personnelle (un seul utilisateur), installable en PWA, avec deux espaces étanches **Pro** et **Perso**. L'app s'ouvre sur Pro (`/` redirige vers `/pro`). **Perso est caché** : aucun lien n'y mène, on y entre en tapant `/perso` (l'en-tête de Perso garde un lien vers Pro). **Pro est en accès libre** (choix assumé de l'utilisateur, en sachant que quiconque a l'adresse du site peut l'ouvrir) ; **Perso** se déverrouille avec le **code du jour** : mois puis jour, heure de Paris (23/10 → `1023`), vérifié côté serveur. Priorité absolue : ouvrir l'app, ajouter et cocher une tâche en quelques secondes.
 
 Le plan complet et validé, phase par phase, est dans `C:\Users\thibf\.claude\plans\quirky-bubbling-cocoa.md`. **Chaque phase est validée par l'utilisateur avant de passer à la suivante. Un commit par étape fonctionnelle.** Ne rien ajouter hors périmètre sans le proposer d'abord (hors périmètre : notifications, emails, rappels, multi-utilisateur, partage, inscription).
 
@@ -38,7 +38,7 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 
 ## PWA et hors ligne
 - `static/manifest.webmanifest`, icônes dans `static/icons/` (générées avec System.Drawing ; la maskable garde le motif dans la zone sûre de 80 %).
-- `src/service-worker.ts` : précache des assets versionnés (`build` + `files`). Pages d'espace et `__data.json` en réseau d'abord, la dernière réponse 200 non redirigée étant conservée dans le cache `tdl-pages` (`isCachablePage`, `src/lib/offline.ts`). Jamais l'API ni `/unlock`.
+- `src/service-worker.ts` : précache des assets versionnés (`build` + `files`). Pages d'espace et `__data.json` en réseau d'abord, la dernière réponse 200 non redirigée étant conservée dans le cache `tdl-pages` (`isCachablePage`, `src/lib/offline.ts`). Jamais l'API ni `/unlock`. Hors ligne, `/` (start_url) redirige vers `/pro`, qui sert sa copie.
 - Hors ligne (`network.offline`, `src/lib/network.svelte.ts`) : bandeau, champ de création et cases désactivés ; `TaskStore` et les pages refusent toute écriture avec un toast.
 - Le verrouillage, et l'affichage de la page de déverrouillage (session expirée), effacent la copie hors ligne de l'espace (`forgetOfflinePages`).
 
@@ -56,7 +56,7 @@ Sous Windows, `npm run build` échoue à l'étape finale de l'adapter Vercel (cr
 - Accès : `isProtected(space)` (`src/lib/spaces.ts`), vrai pour Perso seulement. `requireSpace` laisse passer Pro sans session et exige une session pour Perso.
 - Chaque load et chaque endpoint d'un espace commence par `await requireSpace(event, event.params.space)` (avec `{ onLocked: 'redirect' }` pour les pages). Les loads de layout et de page s'exécutent en parallèle : **chaque** load vérifie lui-même l'accès.
 - Chaque fonction de `repo/` prend `spaceId` en paramètre obligatoire et filtre sur `space_id` dans le `WHERE`, y compris pour les UPDATE et DELETE par id. Une ressource d'un autre espace donne un 404, jamais une fuite. **C'est ce qui empêche l'API Pro, ouverte à tous, d'atteindre une donnée Perso.**
-- Code du jour : `dailyCode()` dans `auth.ts`, comparé en temps constant, avec la limitation des tentatives (5 échecs par IP sur 15 min, 20 par heure pour l'espace). Session Perso : cookie `tdl_perso` httpOnly, Secure, SameSite=Lax, 180 jours avec prolongation glissante ; en base, on ne stocke que le SHA-256 du jeton. « Verrouiller » n'existe que pour Perso et renvoie à l'écran de choix de l'espace (`/`).
+- Code du jour : `dailyCode()` dans `auth.ts`, comparé en temps constant, avec la limitation des tentatives (5 échecs par IP sur 15 min, 20 par heure pour l'espace). Session Perso : cookie `tdl_perso` httpOnly, Secure, SameSite=Lax, 180 jours avec prolongation glissante ; en base, on ne stocke que le SHA-256 du jeton. « Verrouiller » n'existe que pour Perso et renvoie sur Pro.
 - Tout nouvel endpoint ajoute ses cas dans `tests/isolation.test.ts` : refus pour un visiteur sans session côté Perso, 404 entre espaces dans les deux sens.
 
 ### Conventions de données
