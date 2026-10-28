@@ -5,8 +5,8 @@ import { generateDueOccurrences } from '$lib/server/recurrence/generate';
 import { createRecurrence, updateRecurrence } from '$lib/server/repo/recurrences';
 import { createTask, listArchive, listOpenTasks, updateTask, type Task } from '$lib/server/repo/tasks';
 import { parseArchiveCursor } from '$lib/server/validate';
-import type { SpaceId } from '$lib/spaces';
-import { createTestDb, seedSpaces } from './helpers';
+import type { Scope } from '$lib/spaces';
+import { createTestDb, PERSO, seedSpaces, THIBAUT } from './helpers';
 
 let db: Db;
 let cleanup: () => void;
@@ -24,11 +24,11 @@ const HOUR = 3_600_000;
 async function done(
 	title: string,
 	completedAt: number,
-	{ notes = '', space = 'perso' }: { notes?: string; space?: SpaceId } = {}
+	{ notes = '', scope = PERSO }: { notes?: string; scope?: Scope } = {}
 ) {
 	const id = crypto.randomUUID();
-	await createTask(db, space, { id, title, notes, priority: 3, dueDate: null }, T0 - 24 * HOUR);
-	await updateTask(db, space, id, { status: 'done' }, completedAt);
+	await createTask(db, scope, { id, title, notes, priority: 3, dueDate: null }, T0 - 24 * HOUR);
+	await updateTask(db, scope, id, { status: 'done' }, completedAt);
 	return id;
 }
 
@@ -39,22 +39,22 @@ describe('listArchive', () => {
 		await done('Ancienne', T0);
 		await done('Récente', T0 + 2 * HOUR);
 		await done('Milieu', T0 + HOUR);
-		await createTask(db, 'perso', { id: crypto.randomUUID(), title: 'Ouverte', notes: '', priority: 3, dueDate: null });
+		await createTask(db, PERSO, { id: crypto.randomUUID(), title: 'Ouverte', notes: '', priority: 3, dueDate: null });
 
-		expect(titles((await listArchive(db, 'perso')).tasks)).toEqual(['Récente', 'Milieu', 'Ancienne']);
+		expect(titles((await listArchive(db, PERSO)).tasks)).toEqual(['Récente', 'Milieu', 'Ancienne']);
 	});
 
 	it('ne renvoie jamais les tâches de l’autre espace', async () => {
 		await done('Perso', T0);
-		await done('Pro', T0, { space: 'pro' });
-		expect(titles((await listArchive(db, 'perso')).tasks)).toEqual(['Perso']);
-		expect(titles((await listArchive(db, 'pro')).tasks)).toEqual(['Pro']);
+		await done('Pro', T0, { scope: THIBAUT });
+		expect(titles((await listArchive(db, PERSO)).tasks)).toEqual(['Perso']);
+		expect(titles((await listArchive(db, THIBAUT)).tasks)).toEqual(['Pro']);
 	});
 
 	it('cherche sans accents ni casse dans le titre et les notes, tous les mots requis', async () => {
 		await done('Réunion équipe', T0, { notes: 'Salle B' });
 		await done('Banque', T0 + HOUR);
-		const search = async (query: string) => titles((await listArchive(db, 'perso', { query })).tasks);
+		const search = async (query: string) => titles((await listArchive(db, PERSO, { query })).tasks);
 
 		expect(await search('reunion')).toEqual(['Réunion équipe']);
 		expect(await search('EQUIPE salle')).toEqual(['Réunion équipe']);
@@ -67,8 +67,8 @@ describe('listArchive', () => {
 		await done('Remise 500', T0 + HOUR);
 		await done('mot_clé', T0 + 2 * HOUR);
 		await done('motXclé', T0 + 3 * HOUR);
-		expect(titles((await listArchive(db, 'perso', { query: '50%' })).tasks)).toEqual(['Remise 50%']);
-		expect(titles((await listArchive(db, 'perso', { query: 'mot_' })).tasks)).toEqual(['mot_clé']);
+		expect(titles((await listArchive(db, PERSO, { query: '50%' })).tasks)).toEqual(['Remise 50%']);
+		expect(titles((await listArchive(db, PERSO, { query: 'mot_' })).tasks)).toEqual(['mot_clé']);
 	});
 
 	it('pagine par curseur sans trou ni doublon, même à complétion simultanée', async () => {
@@ -77,7 +77,7 @@ describe('listArchive', () => {
 		let cursor;
 		let pages = 0;
 		do {
-			const page = await listArchive(db, 'perso', { cursor, limit: 3 });
+			const page = await listArchive(db, PERSO, { cursor, limit: 3 });
 			seen.push(...titles(page.tasks));
 			cursor = page.next ?? undefined;
 			pages++;
@@ -89,30 +89,30 @@ describe('listArchive', () => {
 
 	it('met à jour la recherche quand le titre ou les notes changent', async () => {
 		const id = await done('Brouillon', T0);
-		await updateTask(db, 'perso', id, { notes: 'Contrat Dupré' });
-		expect(titles((await listArchive(db, 'perso', { query: 'dupre' })).tasks)).toEqual(['Brouillon']);
-		await updateTask(db, 'perso', id, { title: 'Version finale' });
-		expect(titles((await listArchive(db, 'perso', { query: 'finale dupre' })).tasks)).toEqual(['Version finale']);
+		await updateTask(db, PERSO, id, { notes: 'Contrat Dupré' });
+		expect(titles((await listArchive(db, PERSO, { query: 'dupre' })).tasks)).toEqual(['Brouillon']);
+		await updateTask(db, PERSO, id, { title: 'Version finale' });
+		expect(titles((await listArchive(db, PERSO, { query: 'finale dupre' })).tasks)).toEqual(['Version finale']);
 	});
 
 	it('une tâche rouverte quitte l’archive', async () => {
 		const id = await done('À refaire', T0);
-		await updateTask(db, 'perso', id, { status: 'open' });
-		expect((await listArchive(db, 'perso')).tasks).toEqual([]);
+		await updateTask(db, PERSO, id, { status: 'open' });
+		expect((await listArchive(db, PERSO)).tasks).toEqual([]);
 	});
 
 	it('cherche aussi dans les occurrences, avec le titre reporté depuis la récurrence', async () => {
-		const r = await createRecurrence(db, 'perso', {
+		const r = await createRecurrence(db, PERSO, {
 			title: 'Arroser',
 			notes: '',
 			priority: 3,
 			preset: { kind: 'daily' },
 			startDate: '2026-10-20'
 		});
-		await generateDueOccurrences(db, 'perso', '2026-10-21');
-		await updateRecurrence(db, 'perso', r.id, { title: 'Arroser les géraniums' }, '2026-10-21');
-		for (const t of await listOpenTasks(db, 'perso')) await updateTask(db, 'perso', t.id, { status: 'done' });
-		expect((await listArchive(db, 'perso', { query: 'geraniums' })).tasks).toHaveLength(2);
+		await generateDueOccurrences(db, PERSO, '2026-10-21');
+		await updateRecurrence(db, PERSO, r.id, { title: 'Arroser les géraniums' }, '2026-10-21');
+		for (const t of await listOpenTasks(db, PERSO)) await updateTask(db, PERSO, t.id, { status: 'done' });
+		expect((await listArchive(db, PERSO, { query: 'geraniums' })).tasks).toHaveLength(2);
 	});
 });
 

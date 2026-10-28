@@ -3,17 +3,20 @@
 	import { page } from '$app/state';
 	import { network } from '$lib/network.svelte';
 	import { forgetOfflinePages } from '$lib/offline';
-	import { isProtected, SPACES, SPACE_NAMES } from '$lib/spaces';
+	import { PROFILE_NAMES, profilesOf } from '$lib/spaces';
 
 	let { data, children } = $props();
 
-	// Perso n'apparaît nulle part : on n'y entre qu'en tapant son adresse.
-	const otherSpaces = $derived(SPACES.filter((s) => s !== data.space && !isProtected(s)));
+	// Sélecteur des profils Pro, y compris depuis Perso (pour en sortir). Perso n'apparaît nulle part :
+	// on n'y entre qu'en tapant son adresse.
+	const proProfiles = profilesOf('pro');
+	// Changer de profil garde la section ouverte (/thibaut/archive → /philippe/archive).
+	const section = $derived(page.url.pathname.slice(data.profile.length + 1));
 
 	const tabs = $derived([
-		{ href: `/${data.space}`, label: 'Tâches' },
-		{ href: `/${data.space}/recurrences`, label: 'Récurrences' },
-		{ href: `/${data.space}/archive`, label: 'Archive' }
+		{ href: `/${data.profile}`, label: 'Tâches' },
+		{ href: `/${data.profile}/recurrences`, label: 'Récurrences' },
+		{ href: `/${data.profile}/archive`, label: 'Archive' }
 	]);
 
 	// Synchronisation entre appareils : rechargement au retour sur l'app ou du réseau.
@@ -37,16 +40,14 @@
 <svelte:window ononline={refresh} />
 
 <header class="topbar">
-	{#if otherSpaces.length > 0}
-		<!-- Pas de préchargement : il déclencherait la génération des récurrences de l'autre espace. -->
-		<nav class="switcher" aria-label="Espaces" data-sveltekit-preload-data="off">
-			{#each otherSpaces as s (s)}
-				<a href="/{s}">{SPACE_NAMES[s]}</a>
-			{/each}
-		</nav>
-	{/if}
+	<!-- Pas de préchargement : il déclencherait la génération des récurrences de l'autre profil. -->
+	<nav class="switcher" aria-label="Profils" data-sveltekit-preload-data="off">
+		{#each proProfiles as p (p)}
+			<a href="/{p}{section}" aria-current={p === data.profile ? 'page' : undefined}>{PROFILE_NAMES[p]}</a>
+		{/each}
+	</nav>
 	{#if data.lockable}
-		<form method="POST" action="/{data.space}/unlock?/lock" onsubmit={lock}>
+		<form method="POST" action="/{data.profile}/unlock?/lock" onsubmit={lock}>
 			<button class="btn ghost" type="submit">Verrouiller</button>
 		</form>
 	{/if}
@@ -133,5 +134,17 @@
 		color: var(--text-muted);
 		text-decoration: none;
 		font-weight: 600;
+	}
+
+	.switcher a[aria-current='page'] {
+		background: var(--surface-2);
+		color: var(--text);
+	}
+
+	@media (max-width: 640px) {
+		.switcher a {
+			min-width: 0;
+			padding: 0 12px;
+		}
 	}
 </style>

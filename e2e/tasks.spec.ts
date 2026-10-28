@@ -206,14 +206,15 @@ test('un clic à côté ferme la fenêtre de modification (sans enregistrer) et 
 	await expect(filters).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('au lancement : Pro directement, sans lien vers Perso ; /perso demande le code du jour', async ({
+test('au lancement : Thibaut directement, sans lien vers Perso ; /perso demande le code du jour', async ({
 	page
 }) => {
 	await page.goto('/');
-	await expect(page).toHaveURL('/pro');
+	await expect(page).toHaveURL('/thibaut');
 	await expect(page.getByRole('button', { name: 'Verrouiller' })).toHaveCount(0);
+	const profiles = page.getByRole('navigation', { name: 'Profils' });
+	await expect(profiles.getByRole('link')).toHaveText(['Thibaut', 'Philippe']);
 	await expect(page.getByRole('link', { name: 'Perso' })).toHaveCount(0);
-	await expect(page.getByRole('navigation', { name: 'Espaces' })).toHaveCount(0);
 
 	await page.goto('/perso');
 	await expect(page).toHaveURL('/perso/unlock');
@@ -225,11 +226,11 @@ test('au lancement : Pro directement, sans lien vers Perso ; /perso demande le c
 	await expect(page).toHaveURL('/perso');
 	await expect(page.getByRole('button', { name: 'Verrouiller' })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Perso' })).toHaveCount(0);
-	await expect(page.getByRole('link', { name: 'Pro' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Thibaut' })).toBeVisible();
 
-	// Pro n'a pas de page de déverrouillage.
-	await page.goto('/pro/unlock');
-	await expect(page).toHaveURL('/pro');
+	// Les profils Pro n'ont pas de page de déverrouillage.
+	await page.goto('/philippe/unlock');
+	await expect(page).toHaveURL('/philippe');
 });
 
 test('sur téléphone, le code Perso se tape sur le pavé de la page', async ({ page, isMobile }) => {

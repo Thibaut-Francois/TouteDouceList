@@ -1,16 +1,16 @@
 import { todayInParis } from '$lib/dates';
-import { requireSpace } from '$lib/server/auth';
+import { requireScope } from '$lib/server/auth';
 import { generateDueOccurrences } from '$lib/server/recurrence/generate';
 import { listOpenTasks } from '$lib/server/repo/tasks';
-import { parseView, viewCookieName } from '$lib/view-cookie';
+import { readView } from '$lib/view-cookie';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	// Les loads de layout et de page tournent en parallèle : chaque load vérifie lui-même l'accès.
-	const space = await requireSpace(event, event.params.space, { onLocked: 'redirect' });
-	await generateDueOccurrences(event.locals.db, space, todayInParis());
+	const scope = await requireScope(event, event.params.profile, { onLocked: 'redirect' });
+	await generateDueOccurrences(event.locals.db, scope, todayInParis());
 	return {
-		tasks: await listOpenTasks(event.locals.db, space),
-		view: parseView(event.cookies.get(viewCookieName(space)))
+		tasks: await listOpenTasks(event.locals.db, scope),
+		view: readView(event.cookies, scope.profileId)
 	};
 };

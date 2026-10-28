@@ -3,7 +3,8 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 import { build, files, version } from '$service-worker';
-import { isCachablePage, PAGES_CACHE } from '$lib/offline';
+import { isCachablePage, LAST_PROFILE_KEY, PAGES_CACHE, proProfileOf } from '$lib/offline';
+import { DEFAULT_PROFILE } from '$lib/spaces';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -28,6 +29,7 @@ sw.addEventListener('activate', (event) => {
 					keys.filter((k) => k.startsWith('assets-') && k !== ASSETS_CACHE).map((k) => caches.delete(k))
 				)
 			)
+			.then(forgetObsoletePages)
 			.then(() => sw.clients.claim())
 	);
 });
@@ -42,6 +44,8 @@ async function networkFirst(request: Request) {
 		// Une redirection (vers le déverrouillage) ou une erreur ne remplace jamais la copie hors ligne.
 		if (response.ok && !response.redirected && response.type === 'basic') {
 			await cache.put(request, response.clone());
+			const profile = proProfileOf(new URL(request.url).pathname);
+			if (profile) await cache.put(LAST_PROFILE_KEY, new Response(profile));
 		}
 		return response;
 	} catch (error) {
@@ -57,9 +61,24 @@ function offlinePage() {
 	return new Response(OFFLINE_PAGE, { headers: { 'content-type': 'text/html; charset=utf-8' } });
 }
 
-/** Lancement de l'app : `/` redirige vers Pro, hors ligne aussi (sa copie prend le relais). */
-function startPage(request: Request) {
-	return fetch(request).catch(() => Response.redirect('/pro', 302));
+/** Lancement de l'app : `/` redirige vers le dernier profil Pro, hors ligne aussi (sa copie prend le relais). */
+async function startPage(request: Request) {
+	try {
+		return await fetch(request);
+	} catch {
+		const last = await (await caches.open(PAGES_CACHE)).match(LAST_PROFILE_KEY);
+		const profile = (last && proProfileOf(`/${await last.text()}`)) ?? DEFAULT_PROFILE.pro;
+		return Response.redirect(`/${profile}`, 302);
+	}
+}
+
+/** Copies de pages qui ne seraient plus conservées aujourd'hui (anciennes adresses /pro). */
+async function forgetObsoletePages() {
+	const cache = await caches.open(PAGES_CACHE);
+	for (const request of await cache.keys()) {
+		const path = new URL(request.url).pathname;
+		if (path !== LAST_PROFILE_KEY && !isCachablePage(path)) await cache.delete(request);
+	}
 }
 
 sw.addEventListener('fetch', (event) => {

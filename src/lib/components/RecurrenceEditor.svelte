@@ -18,16 +18,16 @@
 		type Weekday
 	} from '$lib/recurrence/presets';
 	import type { Recurrence, RecurrenceInput } from '$lib/server/repo/recurrences';
-	import type { SpaceId } from '$lib/spaces';
+	import type { ProfileId } from '$lib/spaces';
 
 	let {
-		space,
+		profile,
 		recurrence,
 		onsave,
 		ondelete,
 		onclose
 	}: {
-		space: SpaceId;
+		profile: ProfileId;
 		recurrence: Recurrence | null;
 		onsave: (input: RecurrenceInput) => Promise<boolean>;
 		ondelete: (keepOpen: boolean) => Promise<boolean>;
@@ -62,7 +62,7 @@
 		const body = { preset: $state.snapshot(preset), startDate };
 		const timer = setTimeout(async () => {
 			try {
-				const url = `/api/${space}/recurrences/preview`;
+				const url = `/api/${profile}/recurrences/preview`;
 				preview = (await request<{ dates: string[] }>('POST', url, body, { delays: [] })).dates;
 			} catch {
 				preview = [];

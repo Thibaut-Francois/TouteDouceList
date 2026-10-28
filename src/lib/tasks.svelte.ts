@@ -1,6 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 import type { Task, TaskPatch } from '$lib/server/repo/tasks';
-import type { SpaceId } from '$lib/spaces';
+import type { Scope } from '$lib/spaces';
 import { ApiError, request } from './api';
 import { todayInParis } from './dates';
 import { network, OFFLINE_MESSAGE } from './network.svelte';
@@ -10,7 +10,7 @@ export type ViewTask = Task & { sync?: 'saving' | 'failed' };
 export type NewTask = Pick<Task, 'title' | 'priority' | 'dueDate'>;
 
 /**
- * Tâches d'un espace avec mises à jour optimistes : l'affichage combine la dernière liste
+ * Tâches d'un profil avec mises à jour optimistes : l'affichage combine la dernière liste
  * du serveur, les créations pas encore confirmées et les modifications en cours.
  * Les opérations d'une même tâche sont envoyées dans l'ordre (file par id).
  */
@@ -25,7 +25,7 @@ export class TaskStore {
 	onUnauthorized: () => void = () => {};
 
 	constructor(
-		readonly space: SpaceId,
+		readonly scope: Scope,
 		tasks: Task[]
 	) {
 		this.#server = tasks;
@@ -60,7 +60,7 @@ export class TaskStore {
 		const task: ViewTask = {
 			...input,
 			id: crypto.randomUUID(),
-			spaceId: this.space,
+			...this.scope,
 			notes: '',
 			status: 'open',
 			createdAt: Date.now(),
@@ -138,6 +138,6 @@ export class TaskStore {
 	}
 
 	#url(id?: string) {
-		return id ? `/api/${this.space}/tasks/${id}` : `/api/${this.space}/tasks`;
+		return id ? `/api/${this.scope.profileId}/tasks/${id}` : `/api/${this.scope.profileId}/tasks`;
 	}
 }

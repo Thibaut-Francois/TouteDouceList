@@ -2,12 +2,12 @@ import { and, asc, count, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { addDays } from '$lib/dates';
 import { presetToRrule, sanitizePreset, type Preset } from '$lib/recurrence/presets';
-import type { SpaceId } from '$lib/spaces';
+import type { Scope } from '$lib/spaces';
 import { searchText } from '$lib/text';
 import type { Db } from '../db/client';
 import { recurrences, tasks } from '../db/schema';
 
-// Comme pour les tâches, toutes les fonctions filtrent sur space_id.
+// Comme pour les tâches, toutes les fonctions filtrent sur space_id et profile_id.
 
 type Row = typeof recurrences.$inferSelect;
 
@@ -23,40 +23,53 @@ export type RecurrenceInput = {
 
 export type RecurrencePatch = Partial<RecurrenceInput & { active: boolean }>;
 
-const inSpace = (spaceId: SpaceId, id: string) =>
-	and(eq(recurrences.spaceId, spaceId), eq(recurrences.id, id), isNull(recurrences.deletedAt));
+/** Récurrences non supprimées du profil. */
+const ofScope = ({ spaceId, profileId }: Scope) =>
+	and(
+		eq(recurrences.spaceId, spaceId),
+		eq(recurrences.profileId, profileId),
+		isNull(recurrences.deletedAt)
+	);
 
-const openOccurrences = (spaceId: SpaceId, id: string) =>
-	and(eq(tasks.spaceId, spaceId), eq(tasks.recurrenceId, id), eq(tasks.status, 'open'));
+const inScope = (scope: Scope, id: string) => and(ofScope(scope), eq(recurrences.id, id));
+
+const openOccurrences = ({ spaceId, profileId }: Scope, id: string) =>
+	and(
+		eq(tasks.spaceId, spaceId),
+		eq(tasks.profileId, profileId),
+		eq(tasks.recurrenceId, id),
+		eq(tasks.status, 'open')
+	);
 
 function toRecurrence({ preset, deletedAt: _, ...row }: Row, openCount: number): Recurrence {
 	// Le préréglage est écrit par le serveur ; un JSON illisible retomberait sur la règle stockée.
 	return { ...row, preset: sanitizePreset(JSON.parse(preset)) ?? { kind: 'daily' }, openCount };
 }
 
-export async function listRecurrences(db: Db, spaceId: SpaceId): Promise<Recurrence[]> {
+export async function listRecurrences(db: Db, scope: Scope): Promise<Recurrence[]> {
 	const rows = await db
 		.select({ recurrence: recurrences, openCount: count(tasks.id) })
 		.from(recurrences)
 		.leftJoin(tasks, and(eq(tasks.recurrenceId, recurrences.id), eq(tasks.status, 'open')))
-		.where(and(eq(recurrences.spaceId, spaceId), isNull(recurrences.deletedAt)))
+		.where(ofScope(scope))
 		.groupBy(recurrences.id)
 		.orderBy(asc(sql`lower(${recurrences.title})`));
 	return rows.map((r) => toRecurrence(r.recurrence, r.openCount));
 }
 
-export async function getRecurrence(db: Db, spaceId: SpaceId, id: string): Promise<Recurrence | undefined> {
-	const [row] = await db.select().from(recurrences).where(inSpace(spaceId, id)).limit(1);
+export async function getRecurrence(db: Db, scope: Scope, id: string): Promise<Recurrence | undefined> {
+	const [row] = await db.select().from(recurrences).where(inScope(scope, id)).limit(1);
 	if (!row) return undefined;
-	const [{ n }] = await db.select({ n: count() }).from(tasks).where(openOccurrences(spaceId, id));
+	const [{ n }] = await db.select({ n: count() }).from(tasks).where(openOccurrences(scope, id));
 	return toRecurrence(row, n);
 }
 
-export async function createRecurrence(db: Db, spaceId: SpaceId, input: RecurrenceInput) {
+export async function createRecurrence(db: Db, scope: Scope, input: RecurrenceInput) {
 	const id = randomUUID();
 	await db.insert(recurrences).values({
 		id,
-		spaceId,
+		spaceId: scope.spaceId,
+		profileId: scope.profileId,
 		title: input.title,
 		notes: input.notes,
 		priority: input.priority,
@@ -64,7 +77,7 @@ export async function createRecurrence(db: Db, spaceId: SpaceId, input: Recurren
 		rrule: presetToRrule(input.preset),
 		startDate: input.startDate
 	});
-	return (await getRecurrence(db, spaceId, id))!;
+	return (await getRecurrence(db, scope, id))!;
 }
 
 /**
@@ -74,12 +87,12 @@ export async function createRecurrence(db: Db, spaceId: SpaceId, input: Recurren
  */
 export async function updateRecurrence(
 	db: Db,
-	spaceId: SpaceId,
+	scope: Scope,
 	id: string,
 	patch: RecurrencePatch,
 	today: string
 ): Promise<Recurrence | undefined> {
-	const current = await getRecurrence(db, spaceId, id);
+	const current = await getRecurrence(db, scope, id);
 	if (!current) return undefined;
 
 	const { preset, ...rest } = patch;
@@ -95,7 +108,7 @@ export async function updateRecurrence(
 		}
 	}
 	if (Object.keys(values).length > 0) {
-		await db.update(recurrences).set(values).where(inSpace(spaceId, id));
+		await db.update(recurrences).set(values).where(inScope(scope, id));
 	}
 
 	const shared = Object.fromEntries(
@@ -106,20 +119,20 @@ export async function updateRecurrence(
 		const open = await db
 			.select({ id: tasks.id, title: tasks.title, notes: tasks.notes })
 			.from(tasks)
-			.where(openOccurrences(spaceId, id));
+			.where(openOccurrences(scope, id));
 		for (const occurrence of open) {
 			const title = patch.title ?? occurrence.title;
 			const notes = patch.notes ?? occurrence.notes;
 			await db
 				.update(tasks)
 				.set({ ...shared, search: searchText(title, notes) })
-				.where(and(openOccurrences(spaceId, id), eq(tasks.id, occurrence.id)));
+				.where(and(openOccurrences(scope, id), eq(tasks.id, occurrence.id)));
 		}
 	} else if (Object.keys(shared).length > 0) {
-		await db.update(tasks).set(shared).where(openOccurrences(spaceId, id));
+		await db.update(tasks).set(shared).where(openOccurrences(scope, id));
 	}
 
-	return getRecurrence(db, spaceId, id);
+	return getRecurrence(db, scope, id);
 }
 
 /**
@@ -128,7 +141,7 @@ export async function updateRecurrence(
  */
 export async function deleteRecurrence(
 	db: Db,
-	spaceId: SpaceId,
+	scope: Scope,
 	id: string,
 	{ keepOpen = false }: { keepOpen?: boolean } = {},
 	now = Date.now()
@@ -136,23 +149,22 @@ export async function deleteRecurrence(
 	const deleted = await db
 		.update(recurrences)
 		.set({ deletedAt: now, active: false })
-		.where(inSpace(spaceId, id))
+		.where(inScope(scope, id))
 		.returning({ id: recurrences.id });
 	if (deleted.length === 0) return false;
-	if (!keepOpen) await db.delete(tasks).where(openOccurrences(spaceId, id));
+	if (!keepOpen) await db.delete(tasks).where(openOccurrences(scope, id));
 	return true;
 }
 
 /** Récurrences dont des occurrences peuvent être dues : actives, non supprimées, pas encore générées jusqu'à today. */
-export function dueRecurrences(db: Db, spaceId: SpaceId, today: string) {
+export function dueRecurrences(db: Db, scope: Scope, today: string) {
 	return db
 		.select()
 		.from(recurrences)
 		.where(
 			and(
-				eq(recurrences.spaceId, spaceId),
+				ofScope(scope),
 				eq(recurrences.active, true),
-				isNull(recurrences.deletedAt),
 				or(isNull(recurrences.lastGeneratedDate), lt(recurrences.lastGeneratedDate, today))
 			)
 		);

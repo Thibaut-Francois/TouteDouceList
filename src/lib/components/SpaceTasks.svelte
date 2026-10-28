@@ -4,7 +4,7 @@
 	import { applyView, DEFAULT_VIEW, type View } from '$lib/filters';
 	import { saveView } from '$lib/view-cookie';
 	import type { Task } from '$lib/server/repo/tasks';
-	import type { SpaceId } from '$lib/spaces';
+	import type { Scope } from '$lib/spaces';
 	import { TaskStore, type ViewTask } from '$lib/tasks.svelte';
 	import { today } from '$lib/today.svelte';
 	import FilterBar from './FilterBar.svelte';
@@ -13,15 +13,16 @@
 	import TaskItem from './TaskItem.svelte';
 	import Toast, { type ToastMessage } from './Toast.svelte';
 
-	let { space, tasks, initialView }: { space: SpaceId; tasks: Task[]; initialView: View } = $props();
+	let { scope, tasks, initialView }: { scope: Scope; tasks: Task[]; initialView: View } = $props();
 
-	// Composant recréé à chaque changement d'espace ({#key} dans la page) : l'espace initial suffit.
-	const store = untrack(() => new TaskStore(space, tasks));
+	// Composant recréé à chaque changement de profil ({#key} dans la page) : le profil initial suffit.
+	const { profileId } = untrack(() => scope);
+	const store = untrack(() => new TaskStore(scope, tasks));
 
 	$effect(() => store.setServer(tasks));
 
 	let view = $state(untrack(() => initialView));
-	$effect(() => saveView(space, view));
+	$effect(() => saveView(profileId, view));
 	const visible = $derived(applyView(store.open, view, today.value));
 
 	let toast = $state<ToastMessage | null>(null);
@@ -34,7 +35,7 @@
 	}
 
 	store.onError = (message) => showToast(message);
-	store.onUnauthorized = () => goto(`/${space}/unlock`);
+	store.onUnauthorized = () => goto(`/${profileId}/unlock`);
 
 	function complete(task: ViewTask) {
 		store.complete(task.id);

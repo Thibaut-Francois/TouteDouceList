@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openPro, unlockPerso } from './helpers';
+import { openProfile, unlockPerso } from './helpers';
 
 async function add(page: Page, text: string) {
 	const input = page.getByLabel('Nouvelle tâche');
@@ -8,9 +8,9 @@ async function add(page: Page, text: string) {
 	await input.press('Enter');
 }
 
-test('filtres combinables, tri et mémorisation par espace', async ({ page }) => {
-	// Espace Pro : les tests de tasks.spec.ts créent leurs tâches dans Perso.
-	await openPro(page);
+test('filtres combinables, tri et mémorisation par profil', async ({ page }) => {
+	// Profil Thibaut : les tests de tasks.spec.ts créent leurs tâches dans Perso.
+	await openProfile(page);
 	const tag = Math.random().toString(36).slice(2, 8);
 	const urgent = `Urgent ${tag}`;
 	const minor = `Mineure ${tag}`;
@@ -42,14 +42,14 @@ test('filtres combinables, tri et mémorisation par espace', async ({ page }) =>
 	await expect(row(minor)).toHaveCount(0);
 	await expect(row(dated)).toHaveCount(0);
 
-	// Mémorisation propre à l'espace : Perso n'est pas filtré.
+	// Mémorisation propre au profil : Perso n'est pas filtré.
 	await unlockPerso(page);
 	await expect(page.getByRole('button', { name: 'Filtres', exact: true })).toBeVisible();
 	await expect(page.getByRole('combobox', { name: 'Trier' })).toHaveValue('default');
 
-	// Retour sur Pro et réinitialisation.
-	await page.getByRole('link', { name: 'Pro' }).click();
-	await expect(page).toHaveURL('/pro');
+	// Retour sur Thibaut et réinitialisation.
+	await page.getByRole('link', { name: 'Thibaut' }).click();
+	await expect(page).toHaveURL('/thibaut');
 	await page.waitForLoadState('networkidle');
 	await page.getByRole('button', { name: /Filtres/ }).click();
 	await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();

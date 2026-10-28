@@ -7,7 +7,7 @@
 	import Toast, { type ToastMessage } from '$lib/components/Toast.svelte';
 	import { describePreset } from '$lib/recurrence/presets';
 	import type { Recurrence, RecurrenceInput } from '$lib/server/repo/recurrences';
-	import { SPACE_NAMES } from '$lib/spaces';
+	import { PROFILE_NAMES } from '$lib/spaces';
 
 	let { data } = $props();
 
@@ -17,7 +17,7 @@
 	let toast = $state<ToastMessage | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-	const base = $derived(`/api/${data.space}/recurrences`);
+	const base = $derived(`/api/${data.profile}/recurrences`);
 
 	function showToast(message: string) {
 		clearTimeout(toastTimer);
@@ -36,7 +36,7 @@
 			return true;
 		} catch (e) {
 			if (e instanceof ApiError && e.status === 401) {
-				goto(`/${data.space}/unlock`);
+				goto(`/${data.profile}/unlock`);
 				return false;
 			}
 			showToast(
@@ -87,7 +87,7 @@
 </script>
 
 <svelte:head>
-	<title>Récurrences · {SPACE_NAMES[data.space]} · TouteDouceList</title>
+	<title>Récurrences · {PROFILE_NAMES[data.profile]} · TouteDouceList</title>
 </svelte:head>
 
 <div class="head">
@@ -134,7 +134,7 @@
 
 {#if editing}
 	<RecurrenceEditor
-		space={data.space}
+		profile={data.profile}
 		recurrence={editing.recurrence}
 		onsave={save}
 		ondelete={remove}

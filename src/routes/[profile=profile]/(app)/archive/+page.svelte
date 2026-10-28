@@ -9,7 +9,7 @@
 	import { QUERY_MAX } from '$lib/filters';
 	import { network, OFFLINE_MESSAGE } from '$lib/network.svelte';
 	import type { Task } from '$lib/server/repo/tasks';
-	import { SPACE_NAMES } from '$lib/spaces';
+	import { PROFILE_NAMES } from '$lib/spaces';
 	import { today } from '$lib/today.svelte';
 
 	let { data } = $props();
@@ -42,7 +42,7 @@
 			await run();
 			return true;
 		} catch (e) {
-			if (e instanceof ApiError && e.status === 401) goto(`/${data.space}/unlock`);
+			if (e instanceof ApiError && e.status === 401) goto(`/${data.profile}/unlock`);
 			else showToast('Échec. Vérifie ta connexion.');
 			return false;
 		}
@@ -66,7 +66,7 @@
 		const params = new URLSearchParams({ q: data.query, after: cursorParam(next) });
 		loadingMore = true;
 		attempt(async () => {
-			const page = await request<ArchivePage>('GET', `/api/${data.space}/archive?${params}`);
+			const page = await request<ArchivePage>('GET', `/api/${data.profile}/archive?${params}`);
 			tasks = [...tasks, ...page.tasks];
 			next = page.next;
 		}).finally(() => (loadingMore = false));
@@ -74,7 +74,7 @@
 
 	function reopen(task: Task) {
 		return attempt(async () => {
-			await request('PATCH', `/api/${data.space}/tasks/${task.id}`, { status: 'open' });
+			await request('PATCH', `/api/${data.profile}/tasks/${task.id}`, { status: 'open' });
 			tasks = tasks.filter((t) => t.id !== task.id);
 			showToast(`« ${task.title} » est de retour dans Tâches.`);
 		});
@@ -82,7 +82,7 @@
 
 	function remove(task: Task) {
 		return attempt(async () => {
-			await request('DELETE', `/api/${data.space}/tasks/${task.id}`);
+			await request('DELETE', `/api/${data.profile}/tasks/${task.id}`);
 			tasks = tasks.filter((t) => t.id !== task.id);
 			confirming = null;
 			showToast(`« ${task.title} » supprimée définitivement.`);
@@ -91,7 +91,7 @@
 </script>
 
 <svelte:head>
-	<title>Archive · {SPACE_NAMES[data.space]} · TouteDouceList</title>
+	<title>Archive · {PROFILE_NAMES[data.profile]} · TouteDouceList</title>
 </svelte:head>
 
 <h1>Archive</h1>

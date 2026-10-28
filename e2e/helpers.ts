@@ -17,9 +17,9 @@ export async function unlockPerso(page: Page) {
 	await page.waitForLoadState('networkidle');
 }
 
-/** Pro est en accès libre. */
-export async function openPro(page: Page) {
-	await page.goto('/pro');
-	await expect(page).toHaveURL('/pro');
+/** Les profils Pro (Thibaut, Philippe) sont en accès libre. */
+export async function openProfile(page: Page, profile: 'thibaut' | 'philippe' = 'thibaut') {
+	await page.goto(`/${profile}`);
+	await expect(page).toHaveURL(`/${profile}`);
 	await page.waitForLoadState('networkidle');
 }

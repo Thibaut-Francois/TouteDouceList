@@ -2,6 +2,7 @@ import { isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
 import { join } from 'node:path';
 import { createDb, runMigrations, type Db } from '$lib/server/db/client';
 import { seedReferenceData } from '$lib/server/db/seed';
+import { scopeOf } from '$lib/spaces';
 import { TEST_DB_DIR } from './global-setup';
 
 /**
@@ -26,12 +27,20 @@ type FakeEventOptions = {
 	cookies?: Record<string, string>;
 	method?: string;
 	body?: unknown;
+	url?: string;
 };
 
 /** RequestEvent minimal pour appeler directement un load ou un endpoint. */
-export function fakeEvent({ db, params, cookies = {}, method = 'GET', body }: FakeEventOptions) {
+export function fakeEvent({
+	db,
+	params,
+	cookies = {},
+	method = 'GET',
+	body,
+	url: href = 'http://localhost/'
+}: FakeEventOptions) {
 	const jar = new Map(Object.entries(cookies));
-	const url = new URL('http://localhost/');
+	const url = new URL(href);
 	return {
 		params,
 		url,
@@ -61,3 +70,8 @@ export async function statusOf(result: Promise<Response> | Response) {
 		throw e;
 	}
 }
+
+/** Profils des tests, avec leur espace. */
+export const THIBAUT = scopeOf('thibaut');
+export const PHILIPPE = scopeOf('philippe');
+export const PERSO = scopeOf('perso');

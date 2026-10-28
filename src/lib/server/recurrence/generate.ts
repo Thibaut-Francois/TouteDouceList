@@ -1,7 +1,7 @@
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { addDays } from '$lib/dates';
-import type { SpaceId } from '$lib/spaces';
+import type { Scope } from '$lib/spaces';
 import { searchText } from '$lib/text';
 import type { Db } from '../db/client';
 import { recurrences, tasks } from '../db/schema';
@@ -13,12 +13,13 @@ const CHUNK = 200;
 /**
  * Crée les occurrences dues jusqu'à today inclus, rattrapage compris (cumul : les manquées restent en retard).
  * Idempotent : l'unicité (recurrence_id, occurrence_date) empêche tout doublon, même si deux appareils
- * ouvrent l'espace en même temps. Renvoie le nombre d'occurrences créées.
+ * ouvrent le profil en même temps. Les occurrences appartiennent au profil de la récurrence.
+ * Renvoie le nombre d'occurrences créées.
  */
-export async function generateDueOccurrences(db: Db, spaceId: SpaceId, today: string, now = Date.now()) {
+export async function generateDueOccurrences(db: Db, scope: Scope, today: string, now = Date.now()) {
 	let created = 0;
 
-	for (const r of await dueRecurrences(db, spaceId, today)) {
+	for (const r of await dueRecurrences(db, scope, today)) {
 		const from = r.lastGeneratedDate ? addDays(r.lastGeneratedDate, 1) : r.startDate;
 		const dates = occurrencesBetween(r.rrule, r.startDate, from < r.startDate ? r.startDate : from, today);
 
@@ -28,7 +29,8 @@ export async function generateDueOccurrences(db: Db, spaceId: SpaceId, today: st
 				.values(
 					dates.slice(i, i + CHUNK).map((date) => ({
 						id: randomUUID(),
-						spaceId,
+						spaceId: scope.spaceId,
+						profileId: scope.profileId,
 						title: r.title,
 						notes: r.notes,
 						priority: r.priority,

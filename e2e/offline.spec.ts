@@ -46,7 +46,7 @@ test('hors ligne : dernière liste lisible, écriture désactivée ; le verrouil
 
 	await page.waitForLoadState('networkidle');
 	await page.getByRole('button', { name: 'Verrouiller' }).click();
-	await expect(page).toHaveURL('/pro');
+	await expect(page).toHaveURL('/thibaut');
 	await page.waitForLoadState('networkidle');
 
 	await context.setOffline(true);
@@ -56,16 +56,15 @@ test('hors ligne : dernière liste lisible, écriture désactivée ; le verrouil
 	await context.setOffline(false);
 });
 
-test('hors ligne, le lancement de l’app (/) ouvre la dernière liste Pro', async ({ page, context }) => {
-	await page.goto('/');
-	await expect(page).toHaveURL('/pro');
+test('hors ligne, le lancement de l’app (/) ouvre le dernier profil Pro', async ({ page, context }) => {
+	await page.goto('/philippe');
 	await page.evaluate(() => navigator.serviceWorker.ready);
-	// Rechargement contrôlé par le service worker : la liste Pro est mise en cache.
+	// Rechargement contrôlé par le service worker : la liste de Philippe est mise en cache.
 	await page.reload({ waitUntil: 'networkidle' });
 
 	await context.setOffline(true);
 	await page.goto('/');
-	await expect(page).toHaveURL('/pro');
+	await expect(page).toHaveURL('/philippe');
 	await expect(page.getByText('Hors ligne · lecture seule')).toBeVisible();
 	await context.setOffline(false);
 });

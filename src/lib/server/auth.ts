@@ -2,7 +2,7 @@ import { error, redirect, type Cookies, type RequestEvent } from '@sveltejs/kit'
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, count, eq, gt, lt, type SQL } from 'drizzle-orm';
 import { todayInParis } from '$lib/dates';
-import { isProtected, isSpaceId, type SpaceId } from '$lib/spaces';
+import { isProfileId, isProtected, scopeOf, type Scope, type SpaceId } from '$lib/spaces';
 import type { Db } from './db/client';
 import { loginAttempts, sessions } from './db/schema';
 
@@ -151,16 +151,18 @@ export async function isUnlocked(event: RequestEvent, space: SpaceId) {
 }
 
 /**
- * À appeler au début de chaque load et de chaque endpoint d'un espace.
- * Renvoie l'espace validé ; sinon 404 (espace inconnu), 401 ou redirection vers le déverrouillage.
+ * À appeler au début de chaque load et de chaque endpoint d'un profil (paramètre d'adresse).
+ * L'accès se décide sur l'espace du profil : Pro libre, Perso avec session.
+ * Renvoie le profil et son espace ; sinon 404 (profil inconnu), 401 ou redirection vers le déverrouillage.
  */
-export async function requireSpace(
+export async function requireScope(
 	event: RequestEvent,
-	space: string,
+	profile: string,
 	{ onLocked = 'error' }: { onLocked?: 'error' | 'redirect' } = {}
-): Promise<SpaceId> {
-	if (!isSpaceId(space)) error(404, 'Espace inconnu');
-	if (await isUnlocked(event, space)) return space;
-	if (onLocked === 'redirect') redirect(303, `/${space}/unlock`);
+): Promise<Scope> {
+	if (!isProfileId(profile)) error(404, 'Profil inconnu');
+	const scope = scopeOf(profile);
+	if (await isUnlocked(event, scope.spaceId)) return scope;
+	if (onLocked === 'redirect') redirect(303, `/${profile}/unlock`);
 	error(401, 'Espace verrouillé');
 }

@@ -4,17 +4,18 @@ import type { Db } from '$lib/server/db/client';
 import { generateDueOccurrences } from '$lib/server/recurrence/generate';
 import { getRecurrence } from '$lib/server/repo/recurrences';
 import { getTask } from '$lib/server/repo/tasks';
-import type { SpaceId } from '$lib/spaces';
-import * as archive from '../src/routes/api/[space=space]/archive/+server';
-import * as recurrenceById from '../src/routes/api/[space=space]/recurrences/[id]/+server';
-import * as recurrencePreview from '../src/routes/api/[space=space]/recurrences/preview/+server';
-import * as recurrenceList from '../src/routes/api/[space=space]/recurrences/+server';
-import * as taskById from '../src/routes/api/[space=space]/tasks/[id]/+server';
-import * as taskList from '../src/routes/api/[space=space]/tasks/+server';
+import { PROFILE_SPACE, scopeOf, type ProfileId } from '$lib/spaces';
+import * as archive from '../src/routes/api/[profile=profile]/archive/+server';
+import * as recurrenceById from '../src/routes/api/[profile=profile]/recurrences/[id]/+server';
+import * as recurrencePreview from '../src/routes/api/[profile=profile]/recurrences/preview/+server';
+import * as recurrenceList from '../src/routes/api/[profile=profile]/recurrences/+server';
+import * as taskById from '../src/routes/api/[profile=profile]/tasks/[id]/+server';
+import * as taskList from '../src/routes/api/[profile=profile]/tasks/+server';
 import { createTestDb, fakeEvent, seedSpaces, statusOf } from './helpers';
 
 // Modèle d'accès : Pro est en accès libre ; Perso exige une session (code du jour).
 // Un visiteur sans session peut donc utiliser l'API Pro : elle ne doit jamais atteindre une donnée Perso.
+// Entre Thibaut et Philippe (Pro), pas de code, mais des données tout aussi séparées.
 
 type Caller = 'visitor' | 'perso';
 
@@ -33,11 +34,11 @@ type Handler = (event: never) => Response | Promise<Response>;
 
 function call(
 	handler: Handler,
-	{ as, space, id, method, body }: { as: Caller; space: SpaceId; id?: string; method?: string; body?: unknown }
+	{ as, profile, id, method, body }: { as: Caller; profile: ProfileId; id?: string; method?: string; body?: unknown }
 ) {
 	const event = fakeEvent({
 		db,
-		params: id ? { space, id } : { space },
+		params: id ? { profile, id } : { profile },
 		cookies: as === 'perso' ? { [cookieName('perso')]: persoToken } : {},
 		method,
 		body
@@ -45,23 +46,23 @@ function call(
 	return handler(event as never);
 }
 
-/** Qui a le droit d'écrire dans chaque espace : n'importe qui pour Pro, la session Perso pour Perso. */
-const writer = (space: SpaceId): Caller => (space === 'perso' ? 'perso' : 'visitor');
+/** Qui a le droit d'écrire dans chaque profil : n'importe qui pour Pro, la session Perso pour Perso. */
+const writer = (profile: ProfileId): Caller => (PROFILE_SPACE[profile] === 'perso' ? 'perso' : 'visitor');
 
-async function createTaskIn(space: SpaceId, title: string) {
+async function createTaskIn(profile: ProfileId, title: string) {
 	const id = crypto.randomUUID();
-	const status = await statusOf(call(taskList.POST, { as: writer(space), space, method: 'POST', body: { id, title } }));
+	const status = await statusOf(call(taskList.POST, { as: writer(profile), profile, method: 'POST', body: { id, title } }));
 	expect(status).toBe(201);
 	return id;
 }
 
 describe('accès', () => {
 	it('un visiteur sans code utilise Pro librement', async () => {
-		const id = await createTaskIn('pro', 'Rapport');
-		const opts = { as: 'visitor', space: 'pro', id } as const;
-		expect(await statusOf(call(taskList.GET, { as: 'visitor', space: 'pro' }))).toBe(200);
+		const id = await createTaskIn('thibaut', 'Rapport');
+		const opts = { as: 'visitor', profile: 'thibaut', id } as const;
+		expect(await statusOf(call(taskList.GET, { as: 'visitor', profile: 'thibaut' }))).toBe(200);
 		expect(await statusOf(call(taskById.PATCH, { ...opts, method: 'PATCH', body: { status: 'done' } }))).toBe(200);
-		expect(await statusOf(call(archive.GET, { as: 'visitor', space: 'pro' }))).toBe(200);
+		expect(await statusOf(call(archive.GET, { as: 'visitor', profile: 'thibaut' }))).toBe(200);
 		expect(await statusOf(call(taskById.DELETE, { ...opts, method: 'DELETE' }))).toBe(204);
 	});
 
@@ -70,12 +71,12 @@ describe('accès', () => {
 		const recurrence = await (
 			await call(recurrenceList.POST, {
 				as: 'perso',
-				space: 'perso',
+				profile: 'perso',
 				method: 'POST',
 				body: { title: 'Routine', preset: { kind: 'daily' }, startDate: '2026-10-20' }
 			})
 		).json();
-		const opts = { as: 'visitor', space: 'perso' } as const;
+		const opts = { as: 'visitor', profile: 'perso' } as const;
 		const attempts: [Handler, Parameters<typeof call>[1]][] = [
 			[taskList.GET, opts],
 			[taskList.POST, { ...opts, method: 'POST', body: { id: crypto.randomUUID(), title: 'x' } }],
@@ -92,31 +93,37 @@ describe('accès', () => {
 		];
 		for (const [handler, args] of attempts) expect(await statusOf(call(handler, args))).toBe(401);
 
-		expect(await getTask(db, 'perso', id)).toMatchObject({ title: 'Secret', status: 'open' });
-		expect(await getRecurrence(db, 'perso', recurrence.id)).toMatchObject({ active: true });
+		expect(await getTask(db, scopeOf('perso'), id)).toMatchObject({ title: 'Secret', status: 'open' });
+		expect(await getRecurrence(db, scopeOf('perso'), recurrence.id)).toMatchObject({ active: true });
 	});
 
 	it('refuse un jeton Perso inconnu, supprimé ou expiré', async () => {
-		const forged = fakeEvent({ db, params: { space: 'perso' }, cookies: { [cookieName('perso')]: 'invente' } });
+		const forged = fakeEvent({ db, params: { profile: 'perso' }, cookies: { [cookieName('perso')]: 'invente' } });
 		expect(await statusOf(taskList.GET(forged as never))).toBe(401);
 
 		const old = await createSession(db, 'perso', Date.now() - SESSION_TTL_MS - 1000);
-		const expired = fakeEvent({ db, params: { space: 'perso' }, cookies: { [cookieName('perso')]: old } });
+		const expired = fakeEvent({ db, params: { profile: 'perso' }, cookies: { [cookieName('perso')]: old } });
 		expect(await statusOf(taskList.GET(expired as never))).toBe(401);
 	});
 
 	it('une session Perso ouvre Perso', async () => {
 		await createTaskIn('perso', 'Mienne');
-		const res = await call(taskList.GET, { as: 'perso', space: 'perso' });
+		const res = await call(taskList.GET, { as: 'perso', profile: 'perso' });
 		expect(await res.json()).toHaveLength(1);
 	});
 });
 
-// Étanchéité des données : une ressource n'est jamais atteignable via l'API de l'autre espace.
-describe.each([
-	{ owner: 'perso', via: 'pro', as: 'visitor' },
-	{ owner: 'pro', via: 'perso', as: 'perso' }
-] satisfies { owner: SpaceId; via: SpaceId; as: Caller }[])(
+// Étanchéité des données : une ressource n'est jamais atteignable via l'API d'un autre profil,
+// qu'il soit dans l'autre espace ou dans le même (Thibaut et Philippe).
+const CROSSINGS = [
+	{ owner: 'perso', via: 'thibaut', as: 'visitor' },
+	{ owner: 'perso', via: 'philippe', as: 'visitor' },
+	{ owner: 'thibaut', via: 'perso', as: 'perso' },
+	{ owner: 'thibaut', via: 'philippe', as: 'visitor' },
+	{ owner: 'philippe', via: 'thibaut', as: 'visitor' }
+] satisfies { owner: ProfileId; via: ProfileId; as: Caller }[];
+
+describe.each(CROSSINGS)(
 	'une tâche $owner, via l’API $via',
 	({ owner, via, as }) => {
 		let id: string;
@@ -125,51 +132,48 @@ describe.each([
 		});
 
 		it('est introuvable : ni lecture, ni modification, ni suppression (404)', async () => {
-			const opts = { as, space: via, id };
+			const opts = { as, profile: via, id };
 			expect(await statusOf(call(taskById.GET, opts))).toBe(404);
 			expect(
 				await statusOf(call(taskById.PATCH, { ...opts, method: 'PATCH', body: { title: 'piraté', status: 'done' } }))
 			).toBe(404);
 			expect(await statusOf(call(taskById.DELETE, { ...opts, method: 'DELETE' }))).toBe(404);
-			expect(await getTask(db, owner, id)).toMatchObject({ title: `Secret ${owner}`, status: 'open' });
+			expect(await getTask(db, scopeOf(owner), id)).toMatchObject({ title: `Secret ${owner}`, status: 'open' });
 		});
 
 		it('n’apparaît ni dans la liste ni dans l’archive', async () => {
-			await call(taskById.PATCH, { as: writer(owner), space: owner, id, method: 'PATCH', body: { status: 'done' } });
-			expect(await (await call(taskList.GET, { as, space: via })).json()).toEqual([]);
-			expect((await (await call(archive.GET, { as, space: via })).json()).tasks).toEqual([]);
-			expect((await (await call(archive.GET, { as: writer(owner), space: owner })).json()).tasks).toHaveLength(1);
+			await call(taskById.PATCH, { as: writer(owner), profile: owner, id, method: 'PATCH', body: { status: 'done' } });
+			expect(await (await call(taskList.GET, { as, profile: via })).json()).toEqual([]);
+			expect((await (await call(archive.GET, { as, profile: via })).json()).tasks).toEqual([]);
+			expect((await (await call(archive.GET, { as: writer(owner), profile: owner })).json()).tasks).toHaveLength(1);
 		});
 
 		it('ne peut pas être écrasée en réutilisant son id à la création (409)', async () => {
 			const status = await statusOf(
-				call(taskList.POST, { as, space: via, method: 'POST', body: { id, title: 'Écrasée' } })
+				call(taskList.POST, { as, profile: via, method: 'POST', body: { id, title: 'Écrasée' } })
 			);
 			expect(status).toBe(409);
-			expect(await getTask(db, owner, id)).toMatchObject({ title: `Secret ${owner}` });
-			expect(await getTask(db, via, id)).toBeUndefined();
+			expect(await getTask(db, scopeOf(owner), id)).toMatchObject({ title: `Secret ${owner}` });
+			expect(await getTask(db, scopeOf(via), id)).toBeUndefined();
 		});
 	}
 );
 
-describe.each([
-	{ owner: 'perso', via: 'pro', as: 'visitor' },
-	{ owner: 'pro', via: 'perso', as: 'perso' }
-] satisfies { owner: SpaceId; via: SpaceId; as: Caller }[])(
+describe.each(CROSSINGS)(
 	'une récurrence $owner, via l’API $via',
 	({ owner, via, as }) => {
 		let id: string;
 		const body = { title: `Routine ${owner}`, preset: { kind: 'daily' }, startDate: '2026-10-20' };
 
 		beforeEach(async () => {
-			const res = await call(recurrenceList.POST, { as: writer(owner), space: owner, method: 'POST', body });
+			const res = await call(recurrenceList.POST, { as: writer(owner), profile: owner, method: 'POST', body });
 			expect(res.status).toBe(201);
 			id = (await res.json()).id;
-			await generateDueOccurrences(db, owner, '2026-10-22');
+			await generateDueOccurrences(db, scopeOf(owner), '2026-10-22');
 		});
 
 		it('est introuvable : ni lecture, ni modification, ni suppression (404)', async () => {
-			const opts = { as, space: via, id };
+			const opts = { as, profile: via, id };
 			expect(await statusOf(call(recurrenceById.GET, opts))).toBe(404);
 			expect(
 				await statusOf(
@@ -177,13 +181,13 @@ describe.each([
 				)
 			).toBe(404);
 			expect(await statusOf(call(recurrenceById.DELETE, { ...opts, method: 'DELETE' }))).toBe(404);
-			expect(await (await call(recurrenceList.GET, { as, space: via })).json()).toEqual([]);
-			expect(await getRecurrence(db, owner, id)).toMatchObject({ title: `Routine ${owner}`, active: true, openCount: 3 });
+			expect(await (await call(recurrenceList.GET, { as, profile: via })).json()).toEqual([]);
+			expect(await getRecurrence(db, scopeOf(owner), id)).toMatchObject({ title: `Routine ${owner}`, active: true, openCount: 3 });
 		});
 
-		it("la génération de l'autre espace n'en tire rien", async () => {
-			expect(await generateDueOccurrences(db, via, '2026-10-30')).toBe(0);
-			expect(await (await call(taskList.GET, { as, space: via })).json()).toEqual([]);
+		it("la génération de l'autre profil n'en tire rien", async () => {
+			expect(await generateDueOccurrences(db, scopeOf(via), '2026-10-30')).toBe(0);
+			expect(await (await call(taskList.GET, { as, profile: via })).json()).toEqual([]);
 		});
 	}
 );
@@ -193,8 +197,8 @@ describe('propriétaire', () => {
 		const id = crypto.randomUUID();
 		const body = { id, title: 'Une fois' };
 		for (let i = 0; i < 2; i++) {
-			expect(await statusOf(call(taskList.POST, { as: 'perso', space: 'perso', method: 'POST', body }))).toBe(201);
+			expect(await statusOf(call(taskList.POST, { as: 'perso', profile: 'perso', method: 'POST', body }))).toBe(201);
 		}
-		expect(await (await call(taskList.GET, { as: 'perso', space: 'perso' })).json()).toHaveLength(1);
+		expect(await (await call(taskList.GET, { as: 'perso', profile: 'perso' })).json()).toHaveLength(1);
 	});
 });
