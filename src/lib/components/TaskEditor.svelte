@@ -2,14 +2,25 @@
 	import { onMount, untrack } from 'svelte';
 	import { lightDismiss } from '$lib/actions/light-dismiss';
 	import { PRIORITIES, PRIORITY_LABELS } from '$lib/priorities';
-	import type { TaskPatch } from '$lib/server/repo/tasks';
-	import type { ViewTask } from '$lib/tasks.svelte';
+	import type { Task, TaskWrite } from '$lib/server/repo/tasks';
+
+	type Option = { id: string; label: string };
 
 	let {
 		task,
+		assignees = [],
+		stages = [],
 		onsave,
 		onclose
-	}: { task: ViewTask; onsave: (patch: TaskPatch) => void; onclose: () => void } = $props();
+	}: {
+		task: Task;
+		/** Tâche de chantier dans Pro : à qui l'attribuer. */
+		assignees?: Option[];
+		/** Tâche de chantier : dans quelle étape la ranger. */
+		stages?: Option[];
+		onsave: (patch: TaskWrite) => void;
+		onclose: () => void;
+	} = $props();
 
 	// Le formulaire part d'une copie : la tâche affichée ne change qu'à l'enregistrement.
 	const uid = $props.id();
@@ -18,6 +29,8 @@
 	let notes = $state(initial.notes);
 	let priority = $state(initial.priority);
 	let dueDate = $state(initial.dueDate ?? '');
+	let profileId = $state(initial.profileId ?? '');
+	let stageId = $state(initial.stageId ?? '');
 
 	let dialog: HTMLDialogElement;
 	onMount(() => {
@@ -30,11 +43,13 @@
 		event.preventDefault();
 		const trimmed = title.trim();
 		if (!trimmed) return;
-		const patch: TaskPatch = {};
+		const patch: TaskWrite = {};
 		if (trimmed !== initial.title) patch.title = trimmed;
 		if (notes !== initial.notes) patch.notes = notes;
 		if (priority !== initial.priority) patch.priority = priority;
 		if ((dueDate || null) !== initial.dueDate) patch.dueDate = dueDate || null;
+		if (assignees.length && profileId !== initial.profileId) patch.profileId = profileId;
+		if (stages.length && stageId !== initial.stageId) patch.stageId = stageId;
 		onsave(patch);
 		dialog.close();
 	}
@@ -83,6 +98,31 @@
 				</span>
 			</div>
 		</div>
+
+		{#if assignees.length || stages.length}
+			<div class="row">
+				{#if assignees.length}
+					<div class="group">
+						<label for="{uid}-assignee">Attribuée à</label>
+						<select id="{uid}-assignee" class="field" bind:value={profileId}>
+							{#each assignees as a (a.id)}
+								<option value={a.id}>{a.label}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
+				{#if stages.length}
+					<div class="group">
+						<label for="{uid}-stage">Étape</label>
+						<select id="{uid}-stage" class="field" bind:value={stageId}>
+							{#each stages as s (s.id)}
+								<option value={s.id}>{s.label}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="actions">
 			<button class="btn ghost" type="button" onclick={() => dialog.close()}>Annuler</button>

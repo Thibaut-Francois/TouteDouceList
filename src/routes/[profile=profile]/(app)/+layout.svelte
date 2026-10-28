@@ -10,14 +10,19 @@
 	// Sélecteur des profils Pro, y compris depuis Perso (pour en sortir). Perso n'apparaît nulle part :
 	// on n'y entre qu'en tapant son adresse.
 	const proProfiles = profilesOf('pro');
-	// Changer de profil garde la section ouverte (/thibaut/archive → /philippe/archive).
-	const section = $derived(page.url.pathname.slice(data.profile.length + 1));
+	// Entre Thibaut et Philippe, la section reste ouverte (/thibaut/archive → /philippe/archive ; les
+	// chantiers sont communs). Depuis Perso, on revient à l'accueil du profil Pro.
+	const section = $derived(data.space === 'pro' ? page.url.pathname.slice(data.profile.length + 1) : '');
 
 	const tabs = $derived([
 		{ href: `/${data.profile}`, label: 'Tâches' },
+		{ href: `/${data.profile}/chantiers`, label: 'Chantiers' },
 		{ href: `/${data.profile}/recurrences`, label: 'Récurrences' },
 		{ href: `/${data.profile}/archive`, label: 'Archive' }
 	]);
+	// L'onglet d'une section reste actif sur ses sous-pages (un chantier ouvert).
+	const isCurrent = (href: string) =>
+		page.url.pathname === href || (href !== `/${data.profile}` && page.url.pathname.startsWith(`${href}/`));
 
 	// Synchronisation entre appareils : rechargement au retour sur l'app ou du réseau.
 	let lastRefresh = Date.now();
@@ -53,7 +58,7 @@
 	{/if}
 	<nav class="tabs" aria-label="Sections">
 		{#each tabs as tab (tab.href)}
-			<a href={tab.href} aria-current={page.url.pathname === tab.href ? 'page' : undefined}>{tab.label}</a>
+			<a href={tab.href} aria-current={isCurrent(tab.href) ? 'page' : undefined}>{tab.label}</a>
 		{/each}
 	</nav>
 </header>
@@ -145,6 +150,17 @@
 		.switcher a {
 			min-width: 0;
 			padding: 0 12px;
+		}
+
+		/* Quatre onglets sur un téléphone étroit : plus serrés, et défilants s'il le faut. */
+		.tabs {
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+
+		.tabs a {
+			flex: none;
+			padding: 0 8px;
 		}
 	}
 </style>

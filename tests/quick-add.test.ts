@@ -10,7 +10,8 @@ describe('parseQuickAdd', () => {
 		expect(parse('  Acheter du pain  ')).toEqual({
 			title: 'Acheter du pain',
 			priority: null,
-			dueDate: null
+			dueDate: null,
+			assignee: null
 		});
 	});
 
@@ -18,12 +19,14 @@ describe('parseQuickAdd', () => {
 		expect(parse('Payer facture !1 demain')).toEqual({
 			title: 'Payer facture',
 			priority: 1,
-			dueDate: '2026-10-24'
+			dueDate: '2026-10-24',
+			assignee: null
 		});
 		expect(parse('!2 auj Appeler la banque')).toEqual({
 			title: 'Appeler la banque',
 			priority: 2,
-			dueDate: today
+			dueDate: today,
+			assignee: null
 		});
 	});
 
@@ -56,7 +59,31 @@ describe('parseQuickAdd', () => {
 	});
 
 	it('prend tout le texte comme titre quand il ne contient que de la syntaxe', () => {
-		expect(parse('demain')).toEqual({ title: 'demain', priority: null, dueDate: null });
-		expect(parse('!1')).toEqual({ title: '!1', priority: null, dueDate: null });
+		expect(parse('demain')).toEqual({ title: 'demain', priority: null, dueDate: null, assignee: null });
+		expect(parse('!1')).toEqual({ title: '!1', priority: null, dueDate: null, assignee: null });
+	});
+});
+
+describe('attribution dans un chantier (@t / @p)', () => {
+	const assignees = { t: 'thibaut', p: 'philippe' } as const;
+	const inProject = (input: string) => parseQuickAdd(input, today, { assignees });
+
+	it('reconnaît @t et @p, en mot isolé, quelle que soit la casse', () => {
+		expect(inProject('Poser placo @p demain !2')).toEqual({
+			title: 'Poser placo',
+			priority: 2,
+			dueDate: '2026-10-24',
+			assignee: 'philippe'
+		});
+		expect(inProject('@T Commander')).toMatchObject({ title: 'Commander', assignee: 'thibaut' });
+		expect(inProject('mail@p.fr')).toMatchObject({ title: 'mail@p.fr', assignee: null });
+	});
+
+	it('garde un @ inconnu dans le titre', () => {
+		expect(inProject('Voir @x')).toMatchObject({ title: 'Voir @x', assignee: null });
+	});
+
+	it('hors chantier (sans option), @t reste un mot du titre', () => {
+		expect(parse('Appeler @t')).toMatchObject({ title: 'Appeler @t', assignee: null });
 	});
 });
