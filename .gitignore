@@ -12,3 +12,4 @@ node_modules
 *.db-shm
 /test-results
 /playwright-report
+/backups

@@ -17,7 +17,10 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "tsx scripts/migrate.ts",
 		"setup": "tsx scripts/setup.ts",
-		"setup:prod": "tsx scripts/setup.ts --env=.env.production"
+		"setup:prod": "tsx scripts/setup.ts --env=.env.production",
+		"backup": "tsx scripts/backup.ts",
+		"backup:prod": "tsx scripts/backup.ts --env=.env.production",
+		"restore:prod": "tsx scripts/restore.ts --env=.env.production"
 	},
 	"dependencies": {
 		"@libsql/client": "0.18.0",
