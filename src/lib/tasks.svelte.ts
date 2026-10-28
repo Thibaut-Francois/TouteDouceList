@@ -67,6 +67,7 @@ export class TaskStore {
 			completedAt: null,
 			recurrenceId: null,
 			occurrenceDate: null,
+			stageId: null,
 			sync: 'saving'
 		};
 		this.#creates.set(task.id, task);

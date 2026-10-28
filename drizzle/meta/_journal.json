@@ -29,6 +29,13 @@
       "when": 1793216546723,
       "tag": "0003_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793220128788,
+      "tag": "0004_projects",
+      "breakpoints": true
     }
   ]
 }

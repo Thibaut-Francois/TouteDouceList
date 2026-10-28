@@ -52,14 +52,15 @@ it('rattache les données Pro à Thibaut et Perso à Perso, sans rien modifier d
 	const { attached } = await seedReferenceData(db);
 	expect(attached).toBe(5);
 
-	const tasksAfter = await rows('tasks');
-	const recurrencesAfter = await rows('recurrences');
 	const expected = (row: Record<string, unknown>) => ({
 		...row,
 		profile_id: row.space_id === 'pro' ? 'thibaut' : 'perso'
 	});
-	expect(tasksAfter).toEqual(tasksBefore.map(expected));
-	expect(recurrencesAfter).toEqual(recurrencesBefore.map(expected));
+	// Colonnes d'avant 0003, plus profile_id (les migrations suivantes en ajoutent d'autres).
+	const sameColumns = (after: Record<string, unknown>[], before: Record<string, unknown>[]) =>
+		after.map((row) => Object.fromEntries(Object.keys(expected(before[0])).map((c) => [c, row[c]])));
+	expect(sameColumns(await rows('tasks'), tasksBefore)).toEqual(tasksBefore.map(expected));
+	expect(sameColumns(await rows('recurrences'), recurrencesBefore)).toEqual(recurrencesBefore.map(expected));
 
 	expect(await rows('profiles')).toEqual([
 		{ id: 'perso', space_id: 'perso', name: 'Perso' },

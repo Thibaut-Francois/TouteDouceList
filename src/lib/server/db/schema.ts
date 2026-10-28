@@ -72,6 +72,47 @@ export const recurrences = sqliteTable(
 	]
 );
 
+// Chantiers : propres à un espace, communs à ses profils. Leurs dates se calculent à partir des étapes.
+export const projects = sqliteTable(
+	'projects',
+	{
+		id: text('id').primaryKey(),
+		spaceId: text('space_id')
+			.notNull()
+			.references(() => spaces.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		description: text('description').notNull().default(''),
+		status: text('status', { enum: ['open', 'done'] })
+			.notNull()
+			.default('open'),
+		createdAt: integer('created_at').notNull(),
+		completedAt: integer('completed_at')
+	},
+	(t) => [
+		index('projects_space_status_idx').on(t.spaceId, t.status),
+		check('projects_status_check', sql`${t.status} IN ('open', 'done')`)
+	]
+);
+
+// Étapes d'un chantier, dans l'ordre de position (0, 1, 2… sans trou). Les dates peuvent se chevaucher.
+export const stages = sqliteTable(
+	'stages',
+	{
+		id: text('id').primaryKey(),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => projects.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		position: integer('position').notNull(),
+		startDate: text('start_date').notNull(),
+		endDate: text('end_date').notNull()
+	},
+	(t) => [
+		index('stages_project_position_idx').on(t.projectId, t.position),
+		check('stages_dates_check', sql`${t.startDate} <= ${t.endDate}`)
+	]
+);
+
 export const tasks = sqliteTable(
 	'tasks',
 	{
@@ -95,6 +136,8 @@ export const tasks = sqliteTable(
 			onDelete: 'set null'
 		}),
 		occurrenceDate: text('occurrence_date'),
+		// Tâche de chantier : son étape ; profile_id désigne alors la personne à qui elle est attribuée.
+		stageId: text('stage_id').references(() => stages.id, { onDelete: 'set null' }),
 		// Titre + notes en minuscules sans accents (searchText) : recherche de l'archive.
 		search: text('search').notNull().default('')
 	},
@@ -104,6 +147,7 @@ export const tasks = sqliteTable(
 		index('tasks_space_completed_idx').on(t.spaceId, t.completedAt),
 		index('tasks_profile_status_due_idx').on(t.profileId, t.status, t.dueDate),
 		index('tasks_profile_completed_idx').on(t.profileId, t.completedAt),
+		index('tasks_stage_idx').on(t.stageId),
 		check('tasks_priority_check', sql`${t.priority} BETWEEN 1 AND 4`),
 		check('tasks_status_check', sql`${t.status} IN ('open', 'done')`)
 	]
