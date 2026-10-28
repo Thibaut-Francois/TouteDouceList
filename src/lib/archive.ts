@@ -1,5 +1,5 @@
 import type { ArchiveCursor, Task } from '$lib/server/repo/tasks';
-import { formatDue, todayInParis } from './dates';
+import { formatTaskDate, todayInParis } from './dates';
 
 export type ArchivePage = { tasks: Task[]; next: ArchiveCursor | null };
 
@@ -12,7 +12,7 @@ export function groupByDay(tasks: Task[], today: string) {
 		const day = todayInParis(new Date(task.completedAt ?? 0));
 		const last = groups.at(-1);
 		if (last?.day === day) last.tasks.push(task);
-		else groups.push({ day, label: formatDue(day, today), tasks: [task] });
+		else groups.push({ day, label: formatTaskDate(day, today, { capitalize: true }), tasks: [task] });
 	}
 	return groups;
 }

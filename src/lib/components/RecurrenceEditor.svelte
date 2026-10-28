@@ -2,7 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { lightDismiss } from '$lib/actions/light-dismiss';
 	import { request } from '$lib/api';
-	import { formatFull, todayInParis } from '$lib/dates';
+	import { formatDateTitle, formatTaskDate, todayInParis } from '$lib/dates';
 	import { DEFAULT_PRIORITY, PRIORITIES, PRIORITY_LABELS } from '$lib/priorities';
 	import {
 		defaultPreset,
@@ -270,7 +270,9 @@
 				<span id="{uid}-preview">Prochaines dates</span>
 				{#if preview.length}
 					<ul aria-labelledby="{uid}-preview">
-						{#each preview as date (date)}<li>{formatFull(date)}</li>{/each}
+						{#each preview as date (date)}<li title={formatDateTitle(date)}>
+								{formatTaskDate(date, todayInParis(), { capitalize: true })}
+							</li>{/each}
 					</ul>
 				{:else}
 					<p class="muted">Aucune date.</p>

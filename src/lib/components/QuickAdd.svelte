@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { formatDue, todayInParis } from '$lib/dates';
+	import { formatTaskDate } from '$lib/dates';
 	import { network } from '$lib/network.svelte';
 	import { DEFAULT_PRIORITY, PRIORITIES, PRIORITY_COLORS, PRIORITY_LABELS } from '$lib/priorities';
 	import { parseQuickAdd } from '$lib/quick-add';
 	import type { NewTask } from '$lib/tasks.svelte';
+	import { today } from '$lib/today.svelte';
 
 	let { onadd }: { onadd: (task: NewTask) => void } = $props();
 
@@ -12,7 +13,7 @@
 	let picked = $state(DEFAULT_PRIORITY);
 	let input: HTMLInputElement;
 
-	const parsed = $derived(value.trim() ? parseQuickAdd(value, todayInParis()) : null);
+	const parsed = $derived(value.trim() ? parseQuickAdd(value, today.value) : null);
 	// La syntaxe !1 à !4 l'emporte sur le sélecteur.
 	const priority = $derived(parsed?.priority ?? picked);
 
@@ -76,7 +77,7 @@
 		<p class="hint" aria-live="polite">
 			{#if parsed.priority}Priorité {PRIORITY_LABELS[parsed.priority]}{/if}
 			{#if parsed.priority && parsed.dueDate}·{/if}
-			{#if parsed.dueDate}Échéance {formatDue(parsed.dueDate, todayInParis()).toLowerCase()}{/if}
+			{#if parsed.dueDate}Échéance {formatTaskDate(parsed.dueDate, today.value)}{/if}
 		</p>
 	{/if}
 </form>

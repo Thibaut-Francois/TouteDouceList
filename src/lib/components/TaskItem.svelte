@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatDue } from '$lib/dates';
+	import { formatDateTitle, formatTaskDate } from '$lib/dates';
 	import { network } from '$lib/network.svelte';
 	import type { ViewTask } from '$lib/tasks.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
@@ -38,7 +38,9 @@
 		<span class="meta">
 			<PriorityBadge priority={task.priority} />
 			{#if task.dueDate}
-				<span class:late>{formatDue(task.dueDate, today)}</span>
+				<span class:late title={formatDateTitle(task.dueDate)}>
+					{formatTaskDate(task.dueDate, today, { capitalize: true })}
+				</span>
 			{/if}
 			{#if task.recurrenceId}
 				<span title="Récurrente" aria-label="Récurrente">↻</span>

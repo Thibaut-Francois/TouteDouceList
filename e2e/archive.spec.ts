@@ -92,7 +92,7 @@ test('archive : une tâche s’ouvre sur sa fiche (notes et dates)', async ({ pa
 	const detail = page.getByRole('dialog', { name: title });
 	await expect(detail.getByText('Numéro fiscal dans le classeur.')).toBeVisible();
 	await expect(detail.getByText('Avis 2025 joint.')).toBeVisible();
-	await expect(detail.getByText('mer. 20 mai 2026')).toBeVisible();
+	await expect(detail.getByText('20/05/2026')).toHaveAttribute('title', 'mercredi 20 mai 2026');
 	await expect(detail.getByText('Créée le')).toBeVisible();
 	await expect(detail.getByText('Terminée le')).toBeVisible();
 

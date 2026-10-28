@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { todayInParis } from '$lib/dates';
 	import { applyView, DEFAULT_VIEW, type View } from '$lib/filters';
 	import { saveView } from '$lib/view-cookie';
 	import type { Task } from '$lib/server/repo/tasks';
 	import type { SpaceId } from '$lib/spaces';
 	import { TaskStore, type ViewTask } from '$lib/tasks.svelte';
+	import { today } from '$lib/today.svelte';
 	import FilterBar from './FilterBar.svelte';
 	import QuickAdd from './QuickAdd.svelte';
 	import TaskEditor from './TaskEditor.svelte';
@@ -18,16 +18,11 @@
 	// Composant recréé à chaque changement d'espace ({#key} dans la page) : l'espace initial suffit.
 	const store = untrack(() => new TaskStore(space, tasks));
 
-	// « Aujourd'hui » est recalculé à chaque rechargement (retour sur l'app) pour suivre minuit.
-	let today = $state(todayInParis());
-	$effect(() => {
-		store.setServer(tasks);
-		today = todayInParis();
-	});
+	$effect(() => store.setServer(tasks));
 
 	let view = $state(untrack(() => initialView));
 	$effect(() => saveView(space, view));
-	const visible = $derived(applyView(store.open, view, today));
+	const visible = $derived(applyView(store.open, view, today.value));
 
 	let toast = $state<ToastMessage | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -88,7 +83,7 @@
 		{#each visible as task (task.id)}
 			<TaskItem
 				{task}
-				{today}
+				today={today.value}
 				oncomplete={() => complete(task)}
 				onedit={() => (editing = task)}
 				onretry={() => store.retry(task.id)}

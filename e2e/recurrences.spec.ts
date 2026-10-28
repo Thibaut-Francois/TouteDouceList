@@ -72,7 +72,8 @@ test('récurrence : les formulaires des préréglages s’adaptent', async ({ pa
 	await dialog.getByLabel('Jour', { exact: true }).selectOption('FR');
 	const dates = dialog.getByRole('list', { name: 'Prochaines dates' }).getByRole('listitem');
 	await expect(dates).toHaveCount(5);
-	await expect(dates.first()).toContainText('ven.');
+	// Dates en jj/mm/aaaa ; le jour de la semaine est au survol.
+	await expect(dates.first()).toHaveAttribute('title', /^vendredi /);
 
 	await dialog.getByLabel('Rythme').selectOption('custom');
 	await dialog.getByLabel('Tous les').fill('2');

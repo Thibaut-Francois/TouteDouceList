@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { lightDismiss } from '$lib/actions/light-dismiss';
-	import { formatFull, formatInstant } from '$lib/dates';
+	import { formatDateTitle, formatInstant, formatTaskDate } from '$lib/dates';
 	import { network } from '$lib/network.svelte';
 	import { PRIORITY_LABELS } from '$lib/priorities';
 	import type { Task } from '$lib/server/repo/tasks';
+	import { today } from '$lib/today.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
 
 	let {
@@ -41,7 +42,13 @@
 			</dd>
 
 			<dt>Échéance</dt>
-			<dd>{task.dueDate ? formatFull(task.dueDate) : 'Aucune'}</dd>
+			{#if task.dueDate}
+				<dd title={formatDateTitle(task.dueDate)}>
+					{formatTaskDate(task.dueDate, today.value, { capitalize: true })}
+				</dd>
+			{:else}
+				<dd>Aucune</dd>
+			{/if}
 
 			<dt>Créée le</dt>
 			<dd>{formatInstant(task.createdAt)}</dd>

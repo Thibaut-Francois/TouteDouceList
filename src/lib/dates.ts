@@ -31,25 +31,23 @@ export function diffDays(a: string, b: string) {
 	return Math.round((toUtc(a).getTime() - toUtc(b).getTime()) / 86_400_000);
 }
 
-const WEEKDAY = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'long' });
-const DAY_MONTH = new Intl.DateTimeFormat('fr-FR', {
+/** Lundi de la semaine (du lundi au dimanche) qui contient la date. */
+export function startOfWeek(date: string) {
+	return addDays(date, -((dayOfWeek(date) + 6) % 7));
+}
+
+const NUMERIC = new Intl.DateTimeFormat('fr-FR', {
 	timeZone: 'UTC',
-	weekday: 'short',
-	day: 'numeric',
-	month: 'short'
-});
-const DAY_MONTH_YEAR = new Intl.DateTimeFormat('fr-FR', {
-	timeZone: 'UTC',
-	day: 'numeric',
-	month: 'short',
+	day: '2-digit',
+	month: '2-digit',
 	year: 'numeric'
 });
 
-const FULL = new Intl.DateTimeFormat('fr-FR', {
+const LONG = new Intl.DateTimeFormat('fr-FR', {
 	timeZone: 'UTC',
-	weekday: 'short',
+	weekday: 'long',
 	day: 'numeric',
-	month: 'short',
+	month: 'long',
 	year: 'numeric'
 });
 
@@ -68,18 +66,26 @@ export function formatInstant(ms: number) {
 	return INSTANT.format(new Date(ms));
 }
 
-/** « mar. 27 oct. 2026 » */
-export function formatFull(date: string) {
-	return FULL.format(toUtc(date));
+const RELATIVE: Record<number, string> = {
+	[-1]: 'hier',
+	0: "aujourd'hui",
+	1: 'demain',
+	2: 'après-demain'
+};
+
+/**
+ * Date de tâche ou d'étape, partout dans l'app : « hier », « aujourd'hui », « demain » ou
+ * « après-demain » seulement dans la semaine en cours, sinon « 31/10/2026 ».
+ */
+export function formatTaskDate(date: string, today: string, { capitalize = false } = {}) {
+	const relative =
+		startOfWeek(date) === startOfWeek(today) ? RELATIVE[diffDays(date, today)] : undefined;
+	if (!relative) return NUMERIC.format(toUtc(date));
+	return capitalize ? relative[0].toUpperCase() + relative.slice(1) : relative;
 }
 
-export function formatDue(date: string, today: string) {
-	const diff = diffDays(date, today);
-	if (diff === 0) return "Aujourd'hui";
-	if (diff === 1) return 'Demain';
-	if (diff === -1) return 'Hier';
-	const d = toUtc(date);
-	if (diff > 1 && diff < 7) return WEEKDAY.format(d);
-	if (date.slice(0, 4) === today.slice(0, 4)) return DAY_MONTH.format(d);
-	return DAY_MONTH_YEAR.format(d);
+/** Date complète, affichée au survol : « mercredi 28 octobre 2026 ». */
+export function formatDateTitle(date: string) {
+	return LONG.format(toUtc(date));
 }
+

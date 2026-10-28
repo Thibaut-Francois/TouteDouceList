@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { addDays, formatDateTitle, formatTaskDate, todayInParis } from '../src/lib/dates';
 import { todayCode, unlockPerso as unlock } from './helpers';
 
 async function reload(page: Page) {
@@ -30,12 +31,16 @@ test('création rapide avec syntaxe, complétion et annulation', async ({ page, 
 
 	await openQuickAdd(page, isMobile);
 	await page.keyboard.type(`${title} !1 demain`);
-	await expect(page.getByText('Priorité Critique · Échéance demain')).toBeVisible();
+	// « demain », sauf le dimanche : lundi est dans la semaine suivante, donc affiché jj/mm/aaaa.
+	const tomorrow = addDays(todayInParis(), 1);
+	const label = formatTaskDate(tomorrow, todayInParis());
+	await expect(page.getByText(`Priorité Critique · Échéance ${label}`)).toBeVisible();
 	const created = saved(page, 'POST');
 	await page.keyboard.press('Enter');
 
 	const item = page.getByRole('listitem').filter({ hasText: title });
-	await expect(item).toContainText('Demain');
+	const due = item.getByTitle(formatDateTitle(tomorrow));
+	await expect(due).toHaveText(formatTaskDate(tomorrow, todayInParis(), { capitalize: true }));
 	await expect(item.getByRole('img', { name: 'Priorité 1 · Critique' })).toHaveText('1');
 	await expect(page.getByLabel('Nouvelle tâche')).toHaveValue('');
 
@@ -243,4 +248,21 @@ test('sur téléphone, le code Perso se tape sur le pavé de la page', async ({ 
 	// Validation automatique au 4e chiffre.
 	for (const digit of rest) await keypad.getByRole('button', { name: digit, exact: true }).tap();
 	await expect(page).toHaveURL('/perso');
+});
+
+test('après minuit, les dates se mettent à jour au retour sur l’app', async ({ page, isMobile }) => {
+	await unlock(page);
+	const title = unique('Après minuit');
+	const tomorrow = addDays(todayInParis(), 1);
+	await openQuickAdd(page, isMobile);
+	await page.keyboard.type(`${title} demain`);
+	await page.keyboard.press('Enter');
+
+	const due = page.getByRole('listitem').filter({ hasText: title }).getByTitle(formatDateTitle(tomorrow));
+	await expect(due).toHaveText(formatTaskDate(tomorrow, todayInParis(), { capitalize: true }));
+
+	// L'app reste ouverte : un jour passe, puis elle revient au premier plan.
+	await page.clock.setSystemTime(Date.now() + 86_400_000);
+	await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+	await expect(due).toHaveText("Aujourd'hui");
 });

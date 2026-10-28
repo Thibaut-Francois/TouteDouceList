@@ -5,11 +5,12 @@
 	import ArchiveDetail from '$lib/components/ArchiveDetail.svelte';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
 	import Toast, { type ToastMessage } from '$lib/components/Toast.svelte';
-	import { formatDue, todayInParis } from '$lib/dates';
+	import { formatDateTitle, formatTaskDate } from '$lib/dates';
 	import { QUERY_MAX } from '$lib/filters';
 	import { network, OFFLINE_MESSAGE } from '$lib/network.svelte';
 	import type { Task } from '$lib/server/repo/tasks';
 	import { SPACE_NAMES } from '$lib/spaces';
+	import { today } from '$lib/today.svelte';
 
 	let { data } = $props();
 
@@ -18,8 +19,7 @@
 	let next = $derived(data.page.next);
 	let query = $derived(data.query);
 
-	const today = todayInParis();
-	const groups = $derived(groupByDay(tasks, today));
+	const groups = $derived(groupByDay(tasks, today.value));
 
 	let confirming = $state<string | null>(null);
 	let loadingMore = $state(false);
@@ -122,7 +122,9 @@
 							<span class="title">{task.title}</span>
 							<span class="meta">
 								<PriorityBadge priority={task.priority} />
-								{#if task.dueDate}<span>Échéance {formatDue(task.dueDate, today).toLowerCase()}</span>{/if}
+								{#if task.dueDate}<span title={formatDateTitle(task.dueDate)}
+										>Échéance {formatTaskDate(task.dueDate, today.value)}</span
+									>{/if}
 								{#if task.recurrenceId}<span title="Récurrente" aria-label="Récurrente">↻</span>{/if}
 							</span>
 							{#if task.notes}<span class="notes">{task.notes}</span>{/if}
